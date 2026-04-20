@@ -6,6 +6,11 @@ export interface Asset {
   currency: string;
 }
 
+export interface SparklinePoint {
+  date: string;
+  price: number;
+}
+
 export interface PriceSnapshot {
   id: string;
   symbol: string;
@@ -14,5 +19,5 @@ export interface PriceSnapshot {
   change_abs: number;
   change_pct: number;
   as_of: string;
-  sparkline: number[];
+  sparkline: SparklinePoint[];
 }

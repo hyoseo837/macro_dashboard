@@ -23,9 +23,7 @@ const AssetCard: React.FC<AssetCardProps> = ({ asset, price }) => {
         )}
       </div>
 
-      <div className="time-label">30D PERFORMANCE</div>
-
-      <Sparkline data={price.sparkline} isUp={isUp} />
+      <Sparkline data={price.sparkline} isUp={isUp} currency={asset.currency} />
       
       <div className={`price-footer ${isUp ? 'up' : 'down'}`}>
         <div className="price">

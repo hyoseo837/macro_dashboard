@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 class AssetSchema(BaseModel):
@@ -13,14 +13,14 @@ class AssetSchema(BaseModel):
         from_attributes = True
 
 class PriceSnapshotSchema(BaseModel):
-    id: str  # maps to asset_id
+    id: str
     symbol: str
     price: float
     currency: str
     change_abs: float
     change_pct: float
-    as_of: datetime  # maps to fetched_at
-    sparkline: List[float]
+    as_of: datetime
+    sparkline: List[Dict[str, Any]] # Changed from List[float] to List[Dict]
 
     class Config:
         from_attributes = True

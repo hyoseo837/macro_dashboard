@@ -12,12 +12,10 @@ from ..config import settings
 logger = logging.getLogger(__name__)
 
 async def fetch_price_data(symbol: str):
-    """Fetch live price and 30-day sparkline from yfinance."""
+    """Fetch live price and 30-day sparkline with dates from yfinance."""
     try:
-        # Fetch current data
         ticker = yf.Ticker(symbol)
         
-        # Fast way to get current price and info
         info = ticker.fast_info
         current_price = info.last_price
         prev_close = info.previous_close
@@ -25,9 +23,15 @@ async def fetch_price_data(symbol: str):
         change_abs = current_price - prev_close
         change_pct = (change_abs / prev_close) * 100 if prev_close != 0 else 0
         
-        # Fetch history for sparkline (last 45 days to ensure 30 trading days)
+        # Fetch history for sparkline
         hist = ticker.history(period="45d", interval="1d")
-        sparkline = hist['Close'].tail(30).tolist()
+        last_30 = hist.tail(30)
+        
+        # Create list of {date, price} objects
+        sparkline = [
+            {"date": index.strftime("%Y-%m-%d"), "price": float(row['Close'])}
+            for index, row in last_30.iterrows()
+        ]
         
         return {
             "price": current_price,
@@ -43,14 +47,12 @@ async def fetch_price_data(symbol: str):
 
 async def refresh_all_prices(db: AsyncSession):
     """Job to refresh all asset prices in the background."""
-    # Get all assets
     result = await db.execute(select(Asset))
     assets = result.scalars().all()
     
     for asset in assets:
         data = await fetch_price_data(asset.symbol)
         if data:
-            # Upsert into price_snapshots
             stmt = insert(PriceSnapshot).values(
                 asset_id=asset.id,
                 **data
