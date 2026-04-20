@@ -1,0 +1,211 @@
+/* ── CORE STYLES ── */
+:root {
+  --bg: #0b0b0e;
+  --surface: #111116;
+  --surface-hover: #17171d;
+  --border: #1e1e26;
+  --border-dim: #181820;
+  --text-primary: #e8e8f0;
+  --text-secondary: #6b6b80;
+  --text-dim: #3d3d50;
+  --green: #3fb27f;
+  --green-dim: rgba(63, 178, 127, 0.12);
+  --red: #d95f5f;
+  --red-dim: rgba(217, 95, 95, 0.12);
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'IBM Plex Sans', 'Noto Sans KR', sans-serif;
+  --kr: 'Noto Sans KR', 'IBM Plex Sans', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--sans);
+  font-size: 13px;
+  min-height: 100vh;
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+/* ── TOP STRIP ── */
+.top-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 28px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.page-title {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+
+.page-title span {
+  color: var(--text-dim);
+  margin-right: 10px;
+}
+
+.timestamp {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.timestamp::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--green);
+  display: inline-block;
+  animation: pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.section-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 18px 0 10px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-dim);
+}
+
+/* ── ASSET GRID ── */
+.asset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.asset-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  height: 180px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.15s;
+  cursor: default;
+}
+
+.asset-card:hover {
+  border-color: #333344;
+}
+
+.asset-header {
+  padding: 14px 14px 0;
+}
+
+.asset-name {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.asset-name-kr {
+  font-family: var(--kr);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: -0.01em;
+}
+
+.sparkline-wrap {
+  width: 100%;
+  height: 70px;
+  margin-top: auto;
+}
+
+.price-footer {
+  padding: 10px 14px 12px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.price-footer.up { background: var(--green-dim); }
+.price-footer.down { background: var(--red-dim); }
+
+.price {
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.currency {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-left: 2px;
+}
+
+.time-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 4px 14px;
+}
+
+/* ── NEWS GRID ── */
+.news-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 10px;
+}
+
+.news-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.15s;
+  cursor: pointer;
+}
+
+.news-card:hover {
+  border-color: #2a2a36;
+  background: var(--surface-hover);
+}
