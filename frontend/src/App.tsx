@@ -1,10 +1,40 @@
+import { useState, useRef, useEffect } from 'react';
 import { useAssets } from './hooks/useAssets';
 import { usePrices } from './hooks/usePrices';
 import AssetCard from './components/AssetCard';
+import AddAssetModal from './components/AddAssetModal';
+import { Plus } from 'lucide-react';
 
 function App() {
   const { data: assets, isLoading: assetsLoading } = useAssets();
-  const { data: prices, dataUpdatedAt } = usePrices();
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [newAssetIds, setNewAssetIds] = useState<Set<string>>(new Set());
+  const [pendingPrice, setPendingPrice] = useState(false);
+  const prevAssetIdsRef = useRef<Set<string>>(new Set());
+
+  const { data: prices, dataUpdatedAt } = usePrices(pendingPrice ? 3000 : 60000);
+
+  useEffect(() => {
+    if (!assets) return;
+    const currentIds = new Set(assets.map((a) => a.id));
+    const prev = prevAssetIdsRef.current;
+    if (prev.size > 0) {
+      const added = new Set<string>();
+      currentIds.forEach((id) => { if (!prev.has(id)) added.add(id); });
+      if (added.size > 0) {
+        setNewAssetIds(added);
+        setPendingPrice(true);
+        setTimeout(() => setNewAssetIds(new Set()), 600);
+      }
+    }
+    prevAssetIdsRef.current = currentIds;
+  }, [assets]);
+
+  useEffect(() => {
+    if (!pendingPrice || !assets || !prices) return;
+    const allHavePrices = assets.every((a) => prices.some((p) => p.id === a.id));
+    if (allHavePrices) setPendingPrice(false);
+  }, [pendingPrice, assets, prices]);
 
   const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...';
 
@@ -27,13 +57,17 @@ function App() {
 
       <div className="dashboard">
         <div className="section-label">Assets</div>
-        
+
         <div className="asset-grid">
           {assets.map((asset) => {
             const price = prices?.find((p) => p.id === asset.id);
-            if (!price) return null;
-            return <AssetCard key={asset.id} asset={asset} price={price} />;
+            const isNew = newAssetIds.has(asset.id);
+            return <AssetCard key={asset.id} asset={asset} price={price ?? null} isNew={isNew} />;
           })}
+          <button className="add-asset-card" onClick={() => setAddModalOpen(true)}>
+            <Plus size={24} strokeWidth={1.5} />
+            <span>Add Asset</span>
+          </button>
         </div>
 
         {/* [v2 - deferred] news section */}
@@ -46,6 +80,8 @@ function App() {
           </div>
         </div>
       </div>
+
+      <AddAssetModal open={addModalOpen} onClose={() => setAddModalOpen(false)} />
     </>
   );
 }

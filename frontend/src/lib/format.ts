@@ -1,5 +1,14 @@
 export const formatPrice = (value: number, currency: string) => {
-  const decimals = currency === 'KRW' ? 0 : (value < 1 ? 4 : 2);
+  let decimals: number;
+  if (value < 1) {
+    decimals = 4;
+  } else if (value < 100) {
+    decimals = 2;
+  } else if (currency === 'KRW') {
+    decimals = 0;
+  } else {
+    decimals = 2;
+  }
   return new Intl.NumberFormat('en-US', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,

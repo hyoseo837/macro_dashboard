@@ -12,6 +12,15 @@ class AssetSchema(BaseModel):
     class Config:
         from_attributes = True
 
+class AssetCreateSchema(BaseModel):
+    display_name: str
+    symbol: str
+    category: str
+    currency: str
+
+class AssetUpdateSchema(BaseModel):
+    display_name: str
+
 class PriceSnapshotSchema(BaseModel):
     id: str
     symbol: str
