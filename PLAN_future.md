@@ -18,10 +18,12 @@ Still single-user. Replaces the homogeneous asset grid with a general-purpose wi
 Each card on the dashboard is a widget with a type.
 
 **Widget types:**
+
 - **Asset** — current price card (already exists, becomes a widget type)
 - **Time** — shows current time for a chosen region/timezone
 
 **Database:**
+
 - New `widgets` table: `id`, `type` (enum: asset/time/...), `config` (jsonb), `layout_x`, `layout_y`, `layout_w`, `layout_h`
 - `config` stores type-specific settings:
   - Asset widget: `{ "asset_id": "tsla" }`
@@ -32,6 +34,7 @@ Each card on the dashboard is a widget with a type.
 ### Customizable Grid
 
 Use `react-grid-layout`:
+
 - Each widget has a position (`x`, `y`) and span (`w`, `h`) on the grid
 - **Drag & drop** to reorder widgets
 - **Resize** by combining grid cells — e.g. a 2-wide MSFT card shows a bigger sparkline
@@ -41,6 +44,7 @@ Use `react-grid-layout`:
 ### Responsive Widget Rendering
 
 Widget components adapt to their size:
+
 - Asset card at `1x1`: current compact layout
 - Asset card at `2x1`: expanded sparkline, additional stats (day range, volume)
 - Asset card at `2x2`: full chart with date axis, more history
@@ -94,16 +98,19 @@ Widget components adapt to their size:
 New widget type added to the v2 widget system.
 
 **Sources (multi-source for non-biased coverage):**
+
 - BBC, CNN, NYT, Hacker News, and more
 - Users choose which media sources appear in each news widget
 - RSS ingestion + AI summarization (Anthropic Claude API)
 
 **Database:**
+
 - News widget config: `{ "sources": ["bbc", "nyt", "hn"], "topic": "markets", "count": 5 }`
 - New `news_articles` table for cached/ingested articles
 - Background scheduler for RSS fetching (similar to price refresh)
 
 **Widget sizes:**
+
 - `1x1`: single headline
 - `1x2` or `2x1`: headline + summary
 - `2x2`: multiple headlines with summaries, source labels
@@ -116,5 +123,8 @@ New widget type added to the v2 widget system.
 
 ---
 
-## Small fix needed
+## Additional future features
 
+- mobile frendily ui, PWA
+- chrome extension
+- new tab

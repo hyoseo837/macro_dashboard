@@ -51,7 +51,7 @@ function App() {
       <div className="top-strip">
         <div className="page-title"><span>///</span>Macro</div>
         <div className="timestamp">
-          updated {lastUpdated} &nbsp;·&nbsp; {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+          updated {lastUpdated} &nbsp;·&nbsp; {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} &nbsp;·&nbsp; v1.1.0
         </div>
       </div>
 

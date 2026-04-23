@@ -44,3 +44,12 @@
 - **Currency**: All monetary values are numbers. Use `Intl.NumberFormat` for locale-aware UI formatting.
 - **Error Resilience**: Log and handle per-symbol fetch failures gracefully; ensure a single bad ticker never breaks the batch process.
 - **Security**: Strict CORS origin validation via `CORS_ORIGINS` env var.
+
+## graphify
+
+This project has a graphify knowledge graph at graphify-out/.
+
+Rules:
+- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
+- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
+- After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)

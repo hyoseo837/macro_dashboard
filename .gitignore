@@ -20,3 +20,8 @@ node_modules/
 # OS
 .DS_Store
 Thumbs.db
+
+# AI tools
+.claude/
+.gemini/
+graphify-out/

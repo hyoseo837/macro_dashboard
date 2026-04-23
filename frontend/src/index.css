@@ -301,11 +301,12 @@ body {
 
 .currency {
   font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 400;
-  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
   text-transform: uppercase;
   margin-left: 3px;
+  opacity: 0.5;
 }
 
 .change-pill {
@@ -664,4 +665,31 @@ body {
 .news-card:hover {
   border-color: #2a2a36;
   background: var(--surface-hover);
+}
+
+/* ── MOBILE RESPONSIVENESS ── */
+@media (max-width: 600px) {
+  .top-strip {
+    padding: 14px 18px 10px;
+  }
+  .page-title {
+    font-size: 13px;
+  }
+  .timestamp {
+    font-size: 10px;
+  }
+  .dashboard {
+    padding: 0 16px;
+  }
+  .asset-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .price {
+    font-size: 20px;
+  }
+  .change-pill {
+    font-size: 12px;
+    padding: 3px 8px;
+  }
 }
