@@ -53,6 +53,12 @@ body {
   margin-right: 10px;
 }
 
+.top-strip-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .timestamp {
   font-family: var(--mono);
   font-size: 11px;
@@ -665,6 +671,124 @@ body {
 .news-card:hover {
   border-color: #2a2a36;
   background: var(--surface-hover);
+}
+
+/* ── EDIT MODE BUTTON ── */
+.edit-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.edit-mode-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.edit-mode-btn.active {
+  background: rgba(63, 178, 127, 0.1);
+  border-color: var(--green);
+  color: var(--green);
+}
+
+/* ── WIDGET GRID ── */
+.widget-grid {
+  position: relative;
+}
+
+.widget-cell {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  position: relative;
+}
+
+.widget-cell:hover {
+  border-color: #3f3f4e;
+}
+
+.widget-cell.edit-mode {
+  border-style: dashed;
+  border-color: var(--text-dim);
+}
+
+.widget-cell.edit-mode:hover {
+  border-color: var(--text-secondary);
+  box-shadow: 0 0 0 1px var(--text-dim);
+}
+
+.widget-delete-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 20;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.widget-delete-btn:hover {
+  color: var(--red);
+  background: var(--red-dim);
+  border-color: var(--red);
+}
+
+.widget-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 100%;
+  font-family: var(--mono);
+  color: var(--text-dim);
+}
+
+.widget-placeholder-type {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.widget-placeholder-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* react-grid-layout dark theme overrides */
+.react-grid-placeholder {
+  background: var(--green) !important;
+  opacity: 0.1 !important;
+  border-radius: 8px;
+}
+
+.react-resizable-handle::after {
+  border-color: var(--text-dim) !important;
+}
+
+.react-resizable-handle:hover::after {
+  border-color: var(--text-secondary) !important;
 }
 
 /* ── MOBILE RESPONSIVENESS ── */

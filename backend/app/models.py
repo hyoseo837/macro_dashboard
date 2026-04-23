@@ -1,11 +1,16 @@
+import enum
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy import String, Numeric, ForeignKey, DateTime
+from sqlalchemy import String, Integer, Numeric, ForeignKey, DateTime, Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
     pass
+
+class WidgetType(str, enum.Enum):
+    asset = "asset"
+    time = "time"
 
 class Asset(Base):
     __tablename__ = "assets"
@@ -30,3 +35,14 @@ class PriceSnapshot(Base):
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
     asset: Mapped["Asset"] = relationship(back_populates="snapshot")
+
+class Widget(Base):
+    __tablename__ = "widgets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    type: Mapped[WidgetType] = mapped_column(SQLEnum(WidgetType, name="widget_type"))
+    config: Mapped[dict] = mapped_column(JSONB, default=dict)
+    layout_x: Mapped[int] = mapped_column(Integer, default=0)
+    layout_y: Mapped[int] = mapped_column(Integer, default=0)
+    layout_w: Mapped[int] = mapped_column(Integer, default=1)
+    layout_h: Mapped[int] = mapped_column(Integer, default=1)

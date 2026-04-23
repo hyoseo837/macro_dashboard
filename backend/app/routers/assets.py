@@ -9,7 +9,7 @@ from typing import List
 
 from ..db import get_db, SessionLocal
 from ..models import Asset
-from ..schemas import AssetSchema, AssetCreateSchema, AssetUpdateSchema
+from ..schemas import AssetSchema, AssetCreateSchema
 from ..services.prices import refresh_single_price
 
 QUOTE_TYPE_MAP = {
@@ -95,16 +95,6 @@ async def create_asset(body: AssetCreateSchema, db: AsyncSession = Depends(get_d
     asyncio.ensure_future(_fetch_in_background())
     return asset
 
-@router.patch("/assets/{asset_id}", response_model=AssetSchema)
-async def update_asset(asset_id: str, body: AssetUpdateSchema, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Asset).where(Asset.id == asset_id))
-    asset = result.scalar_one_or_none()
-    if not asset:
-        raise HTTPException(status_code=404, detail="Asset not found")
-    asset.display_name = body.display_name
-    await db.commit()
-    await db.refresh(asset)
-    return asset
 
 @router.delete("/assets/{asset_id}", status_code=204)
 async def delete_asset(asset_id: str, db: AsyncSession = Depends(get_db)):

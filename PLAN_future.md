@@ -13,6 +13,16 @@
 
 Still single-user. Replaces the homogeneous asset grid with a general-purpose widget system, laying the foundation for multi-user (v3) without a data migration later.
 
+### Design Decisions
+
+1. **Orphan asset cleanup**: Deleting a widget that is the last reference to an asset also deletes the asset + snapshots.
+2. **Display name is widget-owned**: Widget config stores `label`. Asset table stores only the canonical Yahoo Finance name.
+3. **Add Widget button**: Only visible in edit mode. Placement may change after prototyping.
+4. **Default widget size**: 1x1 (compact).
+5. **Grid compaction**: Disabled — free placement with empty space allowed. Consider fixed-height viewport (no scroll) later.
+6. **Responsive**: `ResponsiveGridLayout` with breakpoints (6 cols desktop, fewer on smaller screens). Desktop-first.
+7. **Existing v1 data**: Clean slate — no auto-migration.
+
 ### Widget System
 
 Each card on the dashboard is a widget with a type.
@@ -26,7 +36,7 @@ Each card on the dashboard is a widget with a type.
 
 - New `widgets` table: `id`, `type` (enum: asset/time/...), `config` (jsonb), `layout_x`, `layout_y`, `layout_w`, `layout_h`
 - `config` stores type-specific settings:
-  - Asset widget: `{ "asset_id": "tsla" }`
+  - Asset widget: `{ "asset_id": "tsla", "label": "Tesla" }`
   - Time widget: `{ "timezone": "America/Toronto", "label": "Toronto" }`
 - `assets` + `price_snapshots` tables remain as the global price cache
 - No `user_assets` table — skipped entirely; widgets own the relationship
@@ -49,6 +59,63 @@ Widget components adapt to their size:
 - Asset card at `2x1`: expanded sparkline, additional stats (day range, volume)
 - Asset card at `2x2`: full chart with date axis, more history
 - Time card at `1x1`: clock + timezone label
+- Larger sizes: add date, UTC offset, day-of-week
+
+### Implementation Phases
+
+**Phase 1 — Backend: Widget Model + Migration + CRUD** ✅
+
+- `Widget` model, Pydantic schemas, Alembic migration
+- CRUD router: `GET/POST /widgets`, `PATCH/DELETE /widgets/{id}`, `PUT /widgets/layout`
+- Orphan asset cleanup on widget delete
+- Removed `PATCH /assets/{id}` rename endpoint
+
+**Phase 2 — Frontend: Types + API Layer + Hook** ✅
+
+- Install `react-grid-layout`
+- Add `Widget` types, `widgets.ts` API module, `useWidgets` hook
+
+**Phase 3 — Frontend: Widget Grid + Edit Mode** ✅
+
+- `WidgetGrid` wrapping `ResponsiveGridLayout` (6 cols, `compactType={null}`)
+- Edit mode toggle in header
+- `WidgetDispatcher` routing widgets to type-specific components
+- Debounced `PUT /widgets/layout` on drag/resize
+
+**Phase 4 — Asset Widget** (parallel with Phase 5)
+
+- `AssetWidget` refactored from `AssetCard`, reads from shared price cache
+- Display name from `config.label`
+- Responsive: 1x1 compact, 2x1 wide, 2x2 full chart, 1x2 tall
+- Fix sparkline gradient ID collisions
+
+**Phase 5 — Time Widget** (parallel with Phase 4)
+
+- `TimeWidget` — live clock via `Intl.DateTimeFormat` + `setInterval`
+- Searchable timezone picker
+- Backend validates against `zoneinfo.available_timezones()`
+
+**Phase 6 — Add Widget Modal**
+
+- Two-step: type picker → type-specific config
+- Asset config reuses Yahoo Finance autocomplete, auto-fills label
+- Time config: timezone search + label input
+- Only accessible in edit mode
+
+**Phase 7 — Polish + Cleanup + Docs**
+
+- Dark theme for react-grid-layout CSS
+- Remove dead code (`AssetCard.tsx`, `AddAssetModal.tsx`)
+- Version bump to 2.0.0
+- Update `API.md`, `CLAUDE.md`, `README.md`, `HISTORY.md`
+
+**Dependency graph:**
+
+```
+Phase 1 → Phase 2 → Phase 3 → Phase 4 ──┐
+                              Phase 5 ──┤→ Phase 6 → Phase 7
+                            (4 & 5 parallel)
+```
 
 ---
 
