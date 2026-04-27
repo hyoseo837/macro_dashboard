@@ -306,14 +306,15 @@ Minimal and simple. Two sections:
 - Admin router: invite code CRUD + user list with widget counts
 - `UserAdminSchema` with `widget_count` field
 
-**Phase 4 — Frontend: Routing + Landing + Auth Pages**
+**Phase 4 — Frontend: Routing + Landing + Auth Pages** ✅
 
-- Install `react-router-dom`, set up route structure
-- Landing page (public — service intro, vision, creator)
-- Login + Register pages with form validation
-- `AuthContext` provider, token management, axios interceptor
+- Installed `react-router-dom`, routes: `/` (landing), `/login`, `/register`, `/dashboard`
+- Landing page with hero, feature grid, footer
+- Login + Register pages with form validation and error handling
+- `AuthContext` with token-in-memory, cookie-based refresh, axios interceptor (auto-refresh on 401)
 - `ProtectedRoute` + `AdminRoute` guards
-- Redirect unauthenticated users from `/dashboard` to `/login`
+- Dashboard extracted from `App.tsx` → `DashboardPage.tsx` with logout button
+- `apiClient` now sends `withCredentials: true` for refresh cookies
 
 **Phase 5 — Frontend: Password Reset + Admin Panel**
 

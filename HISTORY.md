@@ -245,3 +245,15 @@ Before implementation, the following decisions were made:
   - `GET /admin/users` — list users with widget counts (outer join)
 - **Schemas**: Added `UserAdminSchema` with `widget_count` field.
 - **Tested**: User isolation (admin sees 0 widgets, user sees 4), admin access controls (403 for non-admin), invite code CRUD + deletion, unauthenticated widget access blocked.
+
+### Phase 4: Frontend — Routing + Landing + Auth Pages
+
+- **Installed** `react-router-dom`. Routes: `/` (landing), `/login`, `/register`, `/dashboard` (protected).
+- **AuthContext** (`contexts/AuthContext.tsx`): Manages access token in memory (never localStorage). On mount, attempts silent refresh via httpOnly cookie. Provides `login`, `register`, `logout` functions. Axios interceptor attaches `Authorization: Bearer` header and auto-refreshes on 401.
+- **Route guards** (`components/ProtectedRoute.tsx`): `ProtectedRoute` redirects to `/login` if unauthenticated. `AdminRoute` additionally redirects non-admins to `/dashboard`.
+- **Landing page** (`pages/LandingPage.tsx`): Hero section with tagline, 4-feature grid (live prices, world clocks, custom grid, privacy), footer with creator credit. Redirects to `/dashboard` if already logged in.
+- **Login page** (`pages/LoginPage.tsx`): Email + password form with error display. Links to forgot-password and register.
+- **Register page** (`pages/RegisterPage.tsx`): Email, password (min 8), optional birth date, invite code. Pydantic validation errors displayed.
+- **Dashboard** (`pages/DashboardPage.tsx`): Extracted from `App.tsx`. Added logout button and user email in header. Version bumped to v3.0.0 in UI.
+- **API layer**: `api/auth.ts` with login, register, refresh, logout, getMe. `User` and `TokenResponse` types added. `apiClient` now uses `withCredentials: true`.
+- **CSS**: Landing page (nav, hero, features grid, footer), auth pages (card layout, form inputs, error states, buttons). Responsive for mobile.

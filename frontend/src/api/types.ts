@@ -41,6 +41,19 @@ export interface LayoutItem {
   layout_h: number;
 }
 
+export interface User {
+  id: number;
+  email: string;
+  birth_date: string | null;
+  is_admin: boolean;
+  created_at: string;
+}
+
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+}
+
 export interface PriceSnapshot {
   id: string;
   symbol: string;
