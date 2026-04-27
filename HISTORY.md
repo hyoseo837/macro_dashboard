@@ -220,3 +220,15 @@ Before implementation, the following decisions were made:
 - **Migration**: `033d10d1c2d0` — creates `users`, `invite_codes`, `refresh_tokens` tables + adds `widgets.user_id` column.
 - **Dependencies added**: `python-jose[cryptography]`, `bcrypt`, `python-multipart`, `email-validator`.
 - **Tested**: Full auth flow (register, login, refresh rotation, logout + token revocation, /auth/me) and error cases (duplicate email, bad invite code, short password, wrong password). Existing v2 endpoints unaffected.
+
+### Phase 2: Password Reset
+
+- **Model**: Added `PasswordResetToken` (user_id, token_hash, expires_at, used) to `models.py`. Migration `c5336e6a41d5`.
+- **Email service** (`app/services/email.py`): Async SMTP via `aiosmtplib`. Falls back to console logging when `SMTP_HOST` is not set. Sends reset link pointing to `{FRONTEND_URL}/reset-password?token=...`.
+- **Endpoints** added to auth router:
+  - `POST /auth/forgot-password` — generates token (1 hour expiry), sends email. Always returns 200 (no email enumeration).
+  - `POST /auth/reset-password` — validates token, updates password, marks token used. Single-use tokens.
+- **Config**: Added `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `FRONTEND_URL`, `RESET_TOKEN_EXPIRE_MINUTES`.
+- **Dependencies added**: `aiosmtplib`.
+- **Bug fix**: Captured `user.email` before `db.commit()` to avoid SQLAlchemy expired-state error.
+- **Tested**: Full reset flow (forgot → reset → login with new password), token reuse rejection, short password validation, non-existent email (safe 200).

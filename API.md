@@ -71,6 +71,32 @@ Requires `Authorization: Bearer <token>`. Revokes the refresh token and clears t
 
 Response: 204 No Content.
 
+### `POST /auth/forgot-password`
+
+```json
+{ "email": "user@example.com" }
+```
+
+Response (200):
+```json
+{ "detail": "If that email exists, a reset link has been sent" }
+```
+
+Always returns 200 regardless of whether the email exists (prevents enumeration). When SMTP is configured, sends an email with a reset link pointing to `{FRONTEND_URL}/reset-password?token=...`. Token expires in 60 minutes.
+
+### `POST /auth/reset-password`
+
+```json
+{ "token": "raw-token-from-email-link", "new_password": "min8chars" }
+```
+
+Response (200):
+```json
+{ "detail": "Password has been reset" }
+```
+
+Errors: 400 (invalid/expired/already-used token), 422 (password < 8 chars). Tokens are single-use.
+
 ### `GET /auth/me`
 
 Requires `Authorization: Bearer <token>`.

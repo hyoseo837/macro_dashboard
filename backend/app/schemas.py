@@ -96,6 +96,14 @@ class UserSchema(BaseModel):
     class Config:
         from_attributes = True
 
+class ForgotPasswordSchema(BaseModel):
+    email: EmailStr
+
+class ResetPasswordSchema(BaseModel):
+    token: str
+    new_password: str = Field(min_length=8)
+
+
 class InviteCodeCreateSchema(BaseModel):
     code: str
     max_uses: Optional[int] = None

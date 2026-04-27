@@ -14,8 +14,12 @@ from ..auth import (
 )
 from ..config import settings
 from ..db import get_db
-from ..models import User, InviteCode, RefreshToken
-from ..schemas import RegisterSchema, LoginSchema, TokenSchema, UserSchema
+from ..models import User, InviteCode, RefreshToken, PasswordResetToken
+from ..schemas import (
+    RegisterSchema, LoginSchema, TokenSchema, UserSchema,
+    ForgotPasswordSchema, ResetPasswordSchema,
+)
+from ..services.email import send_reset_email
 
 router = APIRouter(prefix="/auth")
 
@@ -150,6 +154,49 @@ async def logout(
             await db.commit()
 
     _clear_refresh_cookie(response)
+
+
+@router.post("/forgot-password", status_code=200)
+async def forgot_password(body: ForgotPasswordSchema, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.email == body.email))
+    user = result.scalar_one_or_none()
+
+    if user:
+        email = user.email
+        raw_token = create_refresh_token_value()
+        prt = PasswordResetToken(
+            user_id=user.id,
+            token_hash=hash_token(raw_token),
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=settings.RESET_TOKEN_EXPIRE_MINUTES),
+        )
+        db.add(prt)
+        await db.commit()
+        await send_reset_email(email, raw_token)
+
+    return {"detail": "If that email exists, a reset link has been sent"}
+
+
+@router.post("/reset-password", status_code=200)
+async def reset_password(body: ResetPasswordSchema, db: AsyncSession = Depends(get_db)):
+    token_hash = hash_token(body.token)
+    result = await db.execute(
+        select(PasswordResetToken).where(
+            PasswordResetToken.token_hash == token_hash,
+            PasswordResetToken.used == False,
+            PasswordResetToken.expires_at > datetime.now(timezone.utc),
+        )
+    )
+    prt = result.scalar_one_or_none()
+    if not prt:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    user_result = await db.execute(select(User).where(User.id == prt.user_id))
+    user = user_result.scalar_one()
+    user.hashed_password = hash_password(body.new_password)
+    prt.used = True
+    await db.commit()
+
+    return {"detail": "Password has been reset"}
 
 
 @router.get("/me", response_model=UserSchema)

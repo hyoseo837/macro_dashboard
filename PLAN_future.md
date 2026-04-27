@@ -291,11 +291,12 @@ Minimal and simple. Two sections:
 - CLI command: `create-admin`
 - `Widget.user_id` FK added (nullable — Phase 3 makes NOT NULL)
 
-**Phase 2 — Backend: Password Reset**
+**Phase 2 — Backend: Password Reset** ✅
 
 - `PasswordResetToken` model, migration
-- SMTP email service (configured via env vars: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`)
+- SMTP email service via `aiosmtplib` (falls back to console logging when `SMTP_HOST` not set)
 - `POST /auth/forgot-password` + `POST /auth/reset-password`
+- Config: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `FRONTEND_URL`, `RESET_TOKEN_EXPIRE_MINUTES`
 
 **Phase 3 — Backend: User-Scoped Widgets + Admin API**
 
