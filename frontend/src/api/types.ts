@@ -16,7 +16,7 @@ export type WidgetType = 'asset' | 'time';
 export interface Widget {
   id: number;
   type: WidgetType;
-  config: Record<string, any>;
+  config: Record<string, unknown>;
   layout_x: number;
   layout_y: number;
   layout_w: number;
@@ -50,4 +50,7 @@ export interface PriceSnapshot {
   change_pct: number;
   as_of: string;
   sparkline: SparklinePoint[];
+  day_high: number | null;
+  day_low: number | null;
+  volume: number | null;
 }

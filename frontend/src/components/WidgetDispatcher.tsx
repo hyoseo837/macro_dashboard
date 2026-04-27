@@ -1,26 +1,19 @@
 import type { Widget } from '../api/types';
+import AssetWidget from './AssetWidget';
+import TimeWidget from './TimeWidget';
 
 interface WidgetDispatcherProps {
   widget: Widget;
-  editMode: boolean;
+  currentW: number;
+  currentH: number;
 }
 
-export default function WidgetDispatcher({ widget, editMode }: WidgetDispatcherProps) {
+export default function WidgetDispatcher({ widget, currentW, currentH }: WidgetDispatcherProps) {
   switch (widget.type) {
     case 'asset':
-      return (
-        <div className="widget-placeholder">
-          <span className="widget-placeholder-type">ASSET</span>
-          <span className="widget-placeholder-label">{widget.config.label || widget.config.asset_id}</span>
-        </div>
-      );
+      return <AssetWidget widget={widget} currentW={currentW} currentH={currentH} />;
     case 'time':
-      return (
-        <div className="widget-placeholder">
-          <span className="widget-placeholder-type">TIME</span>
-          <span className="widget-placeholder-label">{widget.config.label || widget.config.timezone}</span>
-        </div>
-      );
+      return <TimeWidget widget={widget} currentW={currentW} currentH={currentH} />;
     default:
       return (
         <div className="widget-placeholder">

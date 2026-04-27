@@ -143,9 +143,55 @@ Before implementation, the following decisions were made:
 - **CSS**: Added edit mode button, widget cell, delete button, placeholder, and react-grid-layout dark theme overrides.
 - **Fix**: `react-grid-layout` v2 dropped `WidthProvider` — switched to `useContainerWidth` hook + explicit `width` prop.
 
-### Current State (Phases 1–3 complete, 4–7 remaining)
+### Phase 4: Asset Widget — Responsive Price Cards
 
-- **Backend**: Live on `:8000`. New endpoints: `GET/POST /widgets`, `PATCH/DELETE /widgets/{id}`, `PUT /widgets/layout`. Removed `PATCH /assets/{id}`.
-- **Frontend**: Live on `:5173`. Widget grid with edit mode (drag/drop/resize/delete). Widgets render as placeholders — real Asset and Time widget components are Phase 4 & 5.
-- **Database**: `widgets` table added. Assets/snapshots tables unchanged.
-- **Next**: Phase 4 (Asset Widget) and Phase 5 (Time Widget) can run in parallel, then Phase 6 (Add Widget Modal), Phase 7 (Polish).
+- **Backend**: Added `day_high`, `day_low`, `volume` (nullable) to `PriceSnapshot` model. Fetched from yfinance `fast_info`. Exposed in `/prices` response. Migration `e55cbd8eb5b9`.
+- **AssetWidget** (`components/AssetWidget.tsx`): Replaces the phase 3 placeholder. Reads from shared price/asset caches via `usePrices`/`useAssets` hooks. Display name from `config.label`.
+- **4 responsive size variants** driven by live grid dimensions:
+  - **1x1 compact**: label, sparkline, price + change badge
+  - **2x1 wide**: label + price top row, sparkline, stats bar (day range, volume)
+  - **1x2 tall**: label, stretched sparkline, price + change badge
+  - **2x2 full**: label + large price, chart with date axis, stats bar (day range, volume, prev close)
+- **Live variant switching**: `WidgetGrid` tracks current layout dimensions in state, passes them through `WidgetDispatcher` → `AssetWidget`. Resizing a widget in edit mode updates the variant immediately.
+- **Sparkline gradient fix**: Replaced static `gradient-up`/`gradient-down` IDs with `useId()`-based unique IDs per widget instance, fixing SVG gradient collisions.
+- **Grid bugs fixed**: Added `static: !editMode` to layout items (belt-and-suspenders for drag prevention). Added `onSuccess` to `layoutMutation` to invalidate widgets query so layout changes persist after locking.
+
+### Phase 5: Time Widget — Live Clocks
+
+- **TimeWidget** (`components/TimeWidget.tsx`): Live clock ticking every second via `Intl.DateTimeFormat` + `setInterval`.
+- **Analog/digital mode**: Users choose at widget creation. Config stores `mode: "analog" | "digital"`. Defaults to analog for widgets without a mode set.
+- **AnalogClock** (`components/AnalogClock.tsx`): SVG-based clock face with hour markers, hour/minute/second hands, green accent on seconds hand and center dot.
+- **4 responsive size variants** (same pattern as AssetWidget):
+  - **1x1 compact**: label + clock (analog or digital) + UTC offset
+  - **2x1 wide**: analog: clock on left with digital + date on right. Digital: large time + date
+  - **1x2 tall**: analog: clock + digital time + date details. Digital: large time + details
+  - **2x2 full**: analog: large clock + digital + full details row. Digital: extra-large time + details
+- Backend timezone validation was already in place from Phase 3 (`zoneinfo.available_timezones()`).
+
+### Phase 6: Add Widget Modal
+
+- **AddWidgetModal** (`components/AddWidgetModal.tsx`): Two-step flow — type picker (Asset or Time) → type-specific config.
+- **Type picker**: Cards with icons (TrendingUp, Clock) and descriptions. Back arrow returns to picker from config step.
+- **Asset config**: Reuses Yahoo Finance autocomplete from v1. Search → select → auto-fills label, category, currency. Creates the asset (or ignores 409 if it already exists) then creates the widget.
+- **Time config**: Searchable timezone list fetched from `GET /timezones` (all 498 IANA timezones), label input, analog/digital mode toggle.
+- **Backend**: Added `GET /timezones` endpoint returning sorted `zoneinfo.available_timezones()`.
+- **+ Add button**: Visible only in edit mode, in the header strip next to the Edit/Lock toggle.
+
+### Phase 7: Polish + Cleanup + Docs
+
+- **Edit Widget modal** (`components/EditWidgetModal.tsx`): Pencil button on each widget in edit mode. Edit label for asset widgets; label, timezone, and analog/digital mode for time widgets. Uses `PATCH /widgets/{id}`.
+- **Dead code removal**: Deleted `AssetCard.tsx` and `AddAssetModal.tsx` (replaced by widget system). Removed ~200 lines of dead CSS (`.asset-grid`, `.asset-card`, `.add-asset-card`, `.asset-menu`, `.news-grid`, etc.).
+- **Version bump**: `1.1.0` → `2.0.0` in `package.json` and `pyproject.toml`. UI header already showed `v2.0.0`.
+- **Docs updated**: `API.md` rewritten to document all v2 endpoints (widgets CRUD, timezones, sparkline shape, day_high/day_low/volume). `CLAUDE.md` updated for v2 state. `README.md` updated to reflect v2 features and stack.
+
+### Bug Fixes & Polish
+
+- **Fast-polling for new assets**: After adding an asset widget, prices poll every 3s until the new asset's price appears in the cache, then reverts to the normal 60s interval. Fixes "LOADING..." stuck state after adding a new asset (the backend fetches prices in the background via `asyncio.ensure_future`, so the first `/prices` response after widget creation often doesn't include the new asset yet).
+- **Viewport-fit layout**: Page no longer scrolls at the body level. Top strip is pinned, dashboard area fills remaining viewport height and scrolls internally. Styled scrollbar (thin 6px, dark theme colors) for the dashboard overflow.
+
+### Current State (v2 complete)
+
+- **Backend**: Live on `:8000`. Endpoints: `GET /assets`, `POST /assets`, `GET /assets/search`, `GET /assets/currency`, `GET /prices`, `GET /widgets`, `POST /widgets`, `PATCH /widgets/{id}`, `DELETE /widgets/{id}`, `PUT /widgets/layout`, `GET /timezones`, `GET /health`.
+- **Frontend**: Live on `:5173`. Widget grid with asset + time widgets, add/edit/delete, drag-and-drop, resize, edit mode.
+- **Database**: `assets`, `price_snapshots`, `widgets` tables.
+- **Version**: 2.0.0.

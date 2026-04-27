@@ -3,7 +3,7 @@ import type { Widget, WidgetType, LayoutItem } from './types';
 
 export interface CreateWidgetPayload {
   type: WidgetType;
-  config: Record<string, any>;
+  config: Record<string, unknown>;
   layout_x?: number;
   layout_y?: number;
   layout_w?: number;

@@ -1,12 +1,13 @@
-import { useCallback, useRef } from 'react';
-import { ResponsiveGridLayout, useContainerWidth, type Layout } from 'react-grid-layout';
+import { useState, useCallback, useRef } from 'react';
+import { ResponsiveGridLayout, useContainerWidth } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { X } from 'lucide-react';
+import { X, Pencil } from 'lucide-react';
 import type { Widget } from '../api/types';
 import { updateLayout, deleteWidget } from '../api/widgets';
 import WidgetDispatcher from './WidgetDispatcher';
+import EditWidgetModal from './EditWidgetModal';
 
 const BREAKPOINTS = { lg: 1200, md: 900, sm: 600, xs: 0 };
 const COLS = { lg: 6, md: 4, sm: 2, xs: 1 };
@@ -22,9 +23,14 @@ export default function WidgetGrid({ widgets, editMode }: WidgetGridProps) {
   const queryClient = useQueryClient();
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
   const { containerRef, width } = useContainerWidth({ initialWidth: 1280 });
+  const [liveSize, setLiveSize] = useState<Record<string, { w: number; h: number }>>({});
+  const [editingWidget, setEditingWidget] = useState<Widget | null>(null);
 
   const layoutMutation = useMutation({
     mutationFn: updateLayout,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['widgets'] });
+    },
   });
 
   const deleteMutation = useMutation({
@@ -46,17 +52,24 @@ export default function WidgetGrid({ widgets, editMode }: WidgetGridProps) {
       minH: 1,
       maxW: 6,
       maxH: 4,
+      static: !editMode,
     })),
   };
 
   const handleLayoutChange = useCallback(
-    (layout: Layout[]) => {
+    (layout: any[]) => {
+      const sizeMap: Record<string, { w: number; h: number }> = {};
+      for (const l of layout) {
+        sizeMap[l.i] = { w: l.w, h: l.h };
+      }
+      setLiveSize(sizeMap);
+
       if (!editMode) return;
 
       if (debounceRef.current) clearTimeout(debounceRef.current);
 
       debounceRef.current = setTimeout(() => {
-        const items = layout.map((l) => ({
+        const items = layout.map((l: any) => ({
           id: Number(l.i),
           layout_x: l.x,
           layout_y: l.y,
@@ -85,20 +98,36 @@ export default function WidgetGrid({ widgets, editMode }: WidgetGridProps) {
         preventCollision={true}
         onLayoutChange={handleLayoutChange}
       >
-        {widgets.map((widget) => (
-          <div key={String(widget.id)} className={`widget-cell ${editMode ? 'edit-mode' : ''}`}>
-            {editMode && (
-              <button
-                className="widget-delete-btn"
-                onClick={() => deleteMutation.mutate(widget.id)}
-              >
-                <X size={14} />
-              </button>
-            )}
-            <WidgetDispatcher widget={widget} editMode={editMode} />
-          </div>
-        ))}
+        {widgets.map((widget) => {
+          const live = liveSize[String(widget.id)];
+          return (
+            <div key={String(widget.id)} className={`widget-cell ${editMode ? 'edit-mode' : ''}`}>
+              {editMode && (
+                <div className="widget-edit-controls">
+                  <button
+                    className="widget-edit-btn"
+                    onClick={() => setEditingWidget(widget)}
+                  >
+                    <Pencil size={12} />
+                  </button>
+                  <button
+                    className="widget-delete-btn"
+                    onClick={() => deleteMutation.mutate(widget.id)}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+              <WidgetDispatcher
+                widget={widget}
+                currentW={live?.w ?? widget.layout_w}
+                currentH={live?.h ?? widget.layout_h}
+              />
+            </div>
+          );
+        })}
       </ResponsiveGridLayout>
+      <EditWidgetModal widget={editingWidget} onClose={() => setEditingWidget(null)} />
     </div>
   );
 }

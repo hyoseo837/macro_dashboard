@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import { AreaChart, Area, ResponsiveContainer, YAxis, XAxis, Tooltip } from 'recharts';
 import type { SparklinePoint } from '../api/types';
 import { formatPrice } from '../lib/format';
@@ -7,22 +7,20 @@ interface SparklineProps {
   data: SparklinePoint[];
   isUp: boolean;
   currency: string;
+  showDateAxis?: boolean;
 }
 
-const Sparkline: React.FC<SparklineProps> = ({ data, isUp, currency }) => {
+const Sparkline: React.FC<SparklineProps> = ({ data, isUp, currency, showDateAxis }) => {
+  const uid = useId();
   if (!data || data.length < 2) return null;
 
   const color = isUp ? '#3fb27f' : '#d95f5f';
-  const fillId = `gradient-${isUp ? 'up' : 'down'}`;
-
-  // Get first and last dates for the X-axis labels
-  const startDate = new Date(data[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const endDate = new Date(data[data.length - 1].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const fillId = `gradient-${uid}`;
 
   return (
-    <div className="sparkline-wrap h-[120px] relative mt-2">
+    <div className="sparkline-wrap">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 15, right: 0, left: 0, bottom: 0 }}>
+        <AreaChart data={data} margin={{ top: 8, right: 0, left: 0, bottom: showDateAxis ? 0 : 0 }}>
           <defs>
             <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor={color} stopOpacity={0.15}/>
@@ -30,7 +28,18 @@ const Sparkline: React.FC<SparklineProps> = ({ data, isUp, currency }) => {
             </linearGradient>
           </defs>
           <YAxis domain={['auto', 'auto']} hide />
-          <XAxis dataKey="date" hide />
+          <XAxis
+            dataKey="date"
+            hide={!showDateAxis}
+            tickFormatter={(v: string) => {
+              const d = new Date(v);
+              return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            }}
+            tick={{ fontSize: 9, fill: 'var(--text-dim)', fontFamily: 'var(--mono)' }}
+            axisLine={false}
+            tickLine={false}
+            interval="preserveStartEnd"
+          />
           <Tooltip
             content={({ active, payload }) => {
               if (active && payload && payload.length) {

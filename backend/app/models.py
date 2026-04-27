@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy import String, Integer, Numeric, ForeignKey, DateTime, Enum as SQLEnum
+from sqlalchemy import String, Integer, BigInteger, Numeric, ForeignKey, DateTime, Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -32,6 +32,9 @@ class PriceSnapshot(Base):
     change_pct: Mapped[float] = mapped_column(Numeric)
     previous_close: Mapped[float] = mapped_column(Numeric)
     sparkline: Mapped[List[float]] = mapped_column(JSONB)
+    day_high: Mapped[Optional[float]] = mapped_column(Numeric, nullable=True)
+    day_low: Mapped[Optional[float]] = mapped_column(Numeric, nullable=True)
+    volume: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
     asset: Mapped["Asset"] = relationship(back_populates="snapshot")

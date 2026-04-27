@@ -2,8 +2,6 @@
 
 HTTP contract between `frontend/` and `backend/`. This is the source of truth — if you change a shape here, update both sides.
 
-**v1 endpoints**: `/assets`, `/prices`. The `/news` section below is marked **[v2 — deferred]** and is not implemented in v1.
-
 - Base URL in dev: `http://localhost:8000`
 - Base URL in prod: env var `VITE_API_BASE` on the frontend
 - All responses are JSON. All timestamps are ISO 8601 UTC strings.
@@ -33,6 +31,33 @@ Returns the configured asset list (display metadata only, no live prices).
 
 `category`: one of `etf`, `equity`, `crypto`, `fx`, `commodity`.
 
+### `POST /assets`
+
+Creates a new asset. Returns 201 on success, 409 if the asset already exists.
+
+```json
+{
+  "symbol": "TSLA",
+  "display_name": "Tesla, Inc.",
+  "category": "equity",
+  "currency": "USD"
+}
+```
+
+### `GET /assets/search?q={query}`
+
+Proxies Yahoo Finance symbol search. Returns up to 10 matches.
+
+```json
+[
+  { "symbol": "TSLA", "name": "Tesla, Inc.", "category": "equity" }
+]
+```
+
+### `GET /assets/currency?symbol={symbol}`
+
+Returns the currency for a Yahoo Finance symbol (e.g. `"USD"`).
+
 ### `GET /prices`
 
 Returns the latest cached price for every configured asset, plus a sparkline series.
@@ -47,16 +72,89 @@ Returns the latest cached price for every configured asset, plus a sparkline ser
     "change_abs": -3.21,
     "change_pct": -0.77,
     "as_of": "2026-04-20T14:32:00Z",
-    "sparkline": [410.1, 411.4, 412.0, 411.8, 412.85]
+    "sparkline": [{ "date": "2026-03-21", "price": 410.1 }, { "date": "2026-03-22", "price": 411.4 }],
+    "day_high": 415.20,
+    "day_low": 409.50,
+    "volume": 52340000
   }
 ]
 ```
 
-- Sparkline is the last 30 closes (or fewer if not available). Resolution can be daily for v1.
+- `sparkline` is `{ date: string, price: number }[]` — last 30 daily closes (or fewer).
+- `day_high`, `day_low`, `volume` are nullable (may be `null` if unavailable).
 - `change_abs` and `change_pct` are vs. the previous close.
 - Server-side cache TTL: 15 minutes. Client may poll every 60s (it'll mostly hit cache).
 
-### `GET /news` — [v2 — deferred]
+### `GET /widgets`
+
+Returns all widgets, ordered by position.
+
+```json
+[
+  {
+    "id": 1,
+    "type": "asset",
+    "config": { "asset_id": "tsla", "label": "Tesla" },
+    "layout_x": 0, "layout_y": 0, "layout_w": 1, "layout_h": 1
+  },
+  {
+    "id": 2,
+    "type": "time",
+    "config": { "timezone": "America/Toronto", "label": "Toronto", "mode": "analog" },
+    "layout_x": 1, "layout_y": 0, "layout_w": 1, "layout_h": 1
+  }
+]
+```
+
+`type`: `"asset"` or `"time"`.
+
+### `POST /widgets`
+
+Creates a widget. Returns 201.
+
+```json
+{
+  "type": "asset",
+  "config": { "asset_id": "tsla", "label": "Tesla" },
+  "layout_x": 0, "layout_y": 0, "layout_w": 1, "layout_h": 1
+}
+```
+
+- Asset widgets require `config.asset_id` pointing to an existing asset.
+- Time widgets require `config.timezone` from `GET /timezones`.
+
+### `PATCH /widgets/{id}`
+
+Partial update (config and/or layout fields). Returns updated widget.
+
+```json
+{ "config": { "asset_id": "tsla", "label": "New Label" } }
+```
+
+### `DELETE /widgets/{id}`
+
+Deletes a widget (204). If it's an asset widget and no other widget references the same asset, the asset and its price snapshots are also deleted.
+
+### `PUT /widgets/layout`
+
+Batch layout update for drag-and-drop.
+
+```json
+[
+  { "id": 1, "layout_x": 0, "layout_y": 0, "layout_w": 2, "layout_h": 1 },
+  { "id": 2, "layout_x": 2, "layout_y": 0, "layout_w": 1, "layout_h": 1 }
+]
+```
+
+### `GET /timezones`
+
+Returns a sorted list of all valid IANA timezone strings.
+
+```json
+["Africa/Abidjan", "Africa/Accra", "..."]
+```
+
+### `GET /news` — [v4 — deferred]
 
 Returns the most recent N summarized articles across all configured feeds.
 
@@ -84,9 +182,9 @@ Query params:
 Non-2xx responses return:
 
 ```json
-{ "error": "string code", "detail": "human-readable message" }
+{ "detail": "human-readable message" }
 ```
 
 ## Versioning
 
-No versioning in v1. If the contract becomes unstable, prefix with `/v1/`.
+No versioning in v2. If the contract becomes unstable, prefix with `/v1/`.

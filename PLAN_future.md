@@ -82,32 +82,36 @@ Widget components adapt to their size:
 - `WidgetDispatcher` routing widgets to type-specific components
 - Debounced `PUT /widgets/layout` on drag/resize
 
-**Phase 4 — Asset Widget** (parallel with Phase 5)
+**Phase 4 — Asset Widget** ✅
 
 - `AssetWidget` refactored from `AssetCard`, reads from shared price cache
 - Display name from `config.label`
 - Responsive: 1x1 compact, 2x1 wide, 2x2 full chart, 1x2 tall
 - Fix sparkline gradient ID collisions
+- Backend: added `day_high`, `day_low`, `volume` to `PriceSnapshot` for expanded stats
 
-**Phase 5 — Time Widget** (parallel with Phase 4)
+**Phase 5 — Time Widget** ✅
 
 - `TimeWidget` — live clock via `Intl.DateTimeFormat` + `setInterval`
+- Analog clock mode (`AnalogClock` component) with digital fallback
+- Responsive: 1x1 compact, 2x1 wide, 1x2 tall, 2x2 full (date, weekday, UTC offset)
 - Searchable timezone picker
-- Backend validates against `zoneinfo.available_timezones()`
+- Backend validates against `zoneinfo.available_timezones()`, `GET /timezones` endpoint
 
-**Phase 6 — Add Widget Modal**
+**Phase 6 — Add Widget Modal** ✅
 
 - Two-step: type picker → type-specific config
-- Asset config reuses Yahoo Finance autocomplete, auto-fills label
-- Time config: timezone search + label input
+- Asset config reuses Yahoo Finance autocomplete, auto-fills label + currency
+- Time config: timezone search + label input + analog/digital mode toggle
 - Only accessible in edit mode
 
-**Phase 7 — Polish + Cleanup + Docs**
+**Phase 7 — Polish + Cleanup + Docs** ✅
 
 - Dark theme for react-grid-layout CSS
-- Remove dead code (`AssetCard.tsx`, `AddAssetModal.tsx`)
+- Edit existing widgets (label, timezone, analog/digital mode) via EditWidgetModal
+- Removed dead code (`AssetCard.tsx`, `AddAssetModal.tsx`) + ~200 lines dead CSS
 - Version bump to 2.0.0
-- Update `API.md`, `CLAUDE.md`, `README.md`, `HISTORY.md`
+- Updated `API.md`, `CLAUDE.md`, `README.md`, `HISTORY.md`
 
 **Dependency graph:**
 

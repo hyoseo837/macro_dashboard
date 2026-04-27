@@ -14,6 +14,11 @@ VALID_TIMEZONES = available_timezones()
 router = APIRouter()
 
 
+@router.get("/timezones")
+async def list_timezones():
+    return sorted(VALID_TIMEZONES)
+
+
 @router.get("/widgets", response_model=List[WidgetSchema])
 async def list_widgets(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Widget).order_by(Widget.layout_y, Widget.layout_x))

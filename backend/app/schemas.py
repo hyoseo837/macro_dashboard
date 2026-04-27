@@ -61,7 +61,10 @@ class PriceSnapshotSchema(BaseModel):
     change_abs: float
     change_pct: float
     as_of: datetime
-    sparkline: List[Dict[str, Any]] # Changed from List[float] to List[Dict]
+    sparkline: List[Dict[str, Any]]
+    day_high: Optional[float] = None
+    day_low: Optional[float] = None
+    volume: Optional[int] = None
 
     class Config:
         from_attributes = True

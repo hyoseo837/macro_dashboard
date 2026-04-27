@@ -22,6 +22,12 @@ def _fetch_price_data_sync(symbol: str):
     change_abs = current_price - prev_close
     change_pct = (change_abs / prev_close) * 100 if prev_close != 0 else 0
 
+    day_high = getattr(info, 'day_high', None)
+    day_low = getattr(info, 'day_low', None)
+    volume = getattr(info, 'last_volume', None)
+    if volume is not None:
+        volume = int(volume)
+
     hist = ticker.history(period="45d", interval="1d")
     last_30 = hist.tail(30)
 
@@ -36,6 +42,9 @@ def _fetch_price_data_sync(symbol: str):
         "change_pct": change_pct,
         "previous_close": prev_close,
         "sparkline": sparkline,
+        "day_high": day_high,
+        "day_low": day_low,
+        "volume": volume,
         "fetched_at": datetime.utcnow()
     }
 
