@@ -11,6 +11,80 @@ HTTP contract between `frontend/` and `backend/`. This is the source of truth â€
 
 Backend must allow the frontend origin. In dev: `http://localhost:5173`.
 
+## Authentication
+
+JWT-based. Access token is short-lived (30 min), refresh token is long-lived (7 days) stored as `httpOnly` cookie.
+
+- Access token: sent as `Authorization: Bearer <token>` header
+- Refresh token: `httpOnly` cookie named `refresh_token`, scoped to `/auth` path
+- Public endpoints (assets, prices, search, timezones) require no auth
+- Widget endpoints will become user-scoped in v3 Phase 3
+
+### `POST /auth/register`
+
+Creates a new user account. Requires a valid invite code.
+
+Request:
+```json
+{
+  "email": "user@example.com",
+  "password": "min8chars",
+  "birth_date": "2000-01-15",
+  "invite_code": "BETA2026"
+}
+```
+
+Response (201):
+```json
+{ "access_token": "eyJ...", "token_type": "bearer" }
+```
+
+Also sets `refresh_token` cookie. Errors: 409 (email taken), 400 (invalid/expired/exhausted invite code), 422 (password < 8 chars).
+
+### `POST /auth/login`
+
+```json
+{ "email": "user@example.com", "password": "min8chars" }
+```
+
+Response (200):
+```json
+{ "access_token": "eyJ...", "token_type": "bearer" }
+```
+
+Also sets `refresh_token` cookie. Errors: 401 (bad credentials).
+
+### `POST /auth/refresh`
+
+No request body. Reads `refresh_token` cookie. Rotates the refresh token (old one is revoked).
+
+Response (200):
+```json
+{ "access_token": "eyJ...", "token_type": "bearer" }
+```
+
+Errors: 401 (missing/invalid/expired/revoked refresh token).
+
+### `POST /auth/logout`
+
+Requires `Authorization: Bearer <token>`. Revokes the refresh token and clears the cookie.
+
+Response: 204 No Content.
+
+### `GET /auth/me`
+
+Requires `Authorization: Bearer <token>`.
+
+```json
+{
+  "id": 1,
+  "email": "user@example.com",
+  "birth_date": "2000-01-15",
+  "is_admin": true,
+  "created_at": "2026-04-27T05:22:33Z"
+}
+```
+
 ## Endpoints
 
 ### `GET /assets`

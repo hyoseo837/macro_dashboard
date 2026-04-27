@@ -195,3 +195,28 @@ Before implementation, the following decisions were made:
 - **Frontend**: Live on `:5173`. Widget grid with asset + time widgets, add/edit/delete, drag-and-drop, resize, edit mode.
 - **Database**: `assets`, `price_snapshots`, `widgets` tables.
 - **Version**: 2.0.0.
+
+---
+
+## 2026-04-27: v3 Phase 1 — User Model + JWT Auth
+
+### Planning
+- Full v3 plan written in `PLAN_future.md`: 14 design decisions, 6 phases, covering auth, invite system, admin panel, landing page, user-scoped widgets.
+- Key decisions: email/password only (no OAuth), JWT stateless auth, invite-only registration (admin creates codes), admin seeded via CLI, real SMTP for password reset, clean slate (no v2 widget migration).
+
+### Phase 1: Backend Auth Foundation
+
+- **Models**: Added `User` (email, hashed_password, birth_date, is_admin, timestamps), `InviteCode` (code, created_by, max_uses, use_count, expires_at), `RefreshToken` (user_id, token_hash, expires_at, revoked) to `models.py`. Added nullable `user_id` FK + `owner` relationship on `Widget` (will become NOT NULL in Phase 3).
+- **Auth utilities** (`app/auth.py`): `bcrypt` for password hashing (passlib dropped — incompatible with bcrypt 5.x), `python-jose` for JWT, SHA-256 for refresh token hashing. `get_current_user` and `require_admin` FastAPI dependencies.
+- **Auth router** (`app/routers/auth.py`): 6 endpoints:
+  - `POST /auth/register` — validates invite code (expiry, use count), creates user, returns access token + sets refresh cookie
+  - `POST /auth/login` — validates credentials, returns access token + refresh cookie
+  - `POST /auth/refresh` — rotates refresh token (old revoked, new issued)
+  - `POST /auth/logout` — revokes refresh token, clears cookie
+  - `GET /auth/me` — returns current user profile
+- **Token design**: Access token (30 min, stateless, contains user_id + is_admin). Refresh token (7 days, stored in DB as SHA-256 hash, `httpOnly` cookie scoped to `/auth`).
+- **CLI** (`app/cli.py`): `poetry run python -m app.cli create-admin --email <email> --password <password>` for seeding the first admin.
+- **Config**: Added `SECRET_KEY`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `REFRESH_TOKEN_EXPIRE_DAYS` to settings.
+- **Migration**: `033d10d1c2d0` — creates `users`, `invite_codes`, `refresh_tokens` tables + adds `widgets.user_id` column.
+- **Dependencies added**: `python-jose[cryptography]`, `bcrypt`, `python-multipart`, `email-validator`.
+- **Tested**: Full auth flow (register, login, refresh rotation, logout + token revocation, /auth/me) and error cases (duplicate email, bad invite code, short password, wrong password). Existing v2 endpoints unaffected.

@@ -4,17 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-v2 is built and running locally (see [HISTORY.md](HISTORY.md)): backend on `:8000`, frontend on `:5173`, Postgres in Docker on **host port 5433**, `price_snapshots` refreshed every 15 min. Both `PLAN.md` files and [API.md](API.md) are design docs — trust the shipped code when they disagree.
+v2 is complete. v3 (multi-user) is in progress — Phase 1 (auth backend) is done, Phases 2–6 remain. Backend on `:8000`, frontend on `:5173`, Postgres in Docker on **host port 5433**, `price_snapshots` refreshed every 15 min. Both `PLAN.md` files and [API.md](API.md) are design docs — trust the shipped code when they disagree.
 
 ## Scope discipline
 
-v2 is complete. Anything related to news (RSS, Anthropic summarization, `/news` endpoint, `news_articles` table) is v4 scope — do not add `feedparser`, `anthropic`, or news-related files. Multi-user auth is v3 scope.
+v3 is in progress. Anything related to news (RSS, Anthropic summarization, `/news` endpoint, `news_articles` table) is v4 scope — do not add `feedparser`, `anthropic`, or news-related files.
 
 ## Architecture
 
 Two independent halves:
 
-- [backend/](backend/) — FastAPI + SQLAlchemy 2.x (async, `psycopg` v3) + PostgreSQL 16 (Docker) + APScheduler + yfinance. Poetry for packaging. The scheduler is wired inline in [backend/app/main.py](backend/app/main.py); it runs `refresh_all_prices` once on startup, then every 15 min. Three tables: `assets` (global catalog), `price_snapshots` (cache), `widgets` (user layout).
+- [backend/](backend/) — FastAPI + SQLAlchemy 2.x (async, `psycopg` v3) + PostgreSQL 16 (Docker) + APScheduler + yfinance. Poetry for packaging. The scheduler is wired inline in [backend/app/main.py](backend/app/main.py); it runs `refresh_all_prices` once on startup, then every 15 min. Tables: `assets` (global catalog), `price_snapshots` (cache), `widgets` (user layout), `users`, `invite_codes`, `refresh_tokens`. Auth via JWT (`python-jose`) + `bcrypt`.
 - [frontend/](frontend/) — Vite + React 19 + TypeScript + Tailwind v4 + `@tanstack/react-query` + `recharts` + `react-grid-layout` + `axios`. Single page, no router. `usePrices` polls `/prices` every 60 s. Dark mode only.
 
 The contract between halves is [API.md](API.md). If a shape changes, update `API.md`, then both sides. The frontend must never call yfinance/RSS directly — everything goes through the backend.
@@ -50,6 +50,8 @@ npm run dev       # Vite on :5173
 npm run build     # tsc -b && vite build
 npm run lint      # eslint .
 ```
+
+The user runs the backend and frontend themselves (`poetry run uvicorn app.main:app --reload` and `npm run dev`). Do not start or restart these servers — just `curl` against `:8000` / `:5173` to test.
 
 No test suite exists yet. `pytest` is listed as a dev dep in `pyproject.toml` but there is no `tests/` directory; don't claim to have run tests without adding them.
 

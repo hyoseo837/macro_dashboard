@@ -1,6 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import date, datetime
 from .models import WidgetType
 
 class AssetSchema(BaseModel):
@@ -65,6 +65,50 @@ class PriceSnapshotSchema(BaseModel):
     day_high: Optional[float] = None
     day_low: Optional[float] = None
     volume: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ── Auth schemas ──
+
+class RegisterSchema(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8)
+    birth_date: Optional[date] = None
+    invite_code: str
+
+class LoginSchema(BaseModel):
+    email: EmailStr
+    password: str
+
+class TokenSchema(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+class UserSchema(BaseModel):
+    id: int
+    email: str
+    birth_date: Optional[date] = None
+    is_admin: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class InviteCodeCreateSchema(BaseModel):
+    code: str
+    max_uses: Optional[int] = None
+    expires_at: Optional[datetime] = None
+
+class InviteCodeSchema(BaseModel):
+    id: int
+    code: str
+    created_by: int
+    max_uses: Optional[int] = None
+    use_count: int
+    expires_at: Optional[datetime] = None
+    created_at: datetime
 
     class Config:
         from_attributes = True

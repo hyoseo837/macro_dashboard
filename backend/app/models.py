@@ -1,12 +1,54 @@
 import enum
-from datetime import datetime
+from datetime import date, datetime
 from typing import List, Optional
-from sqlalchemy import String, Integer, BigInteger, Numeric, ForeignKey, DateTime, Enum as SQLEnum
+from sqlalchemy import String, Integer, BigInteger, Boolean, Date, Numeric, ForeignKey, DateTime, Enum as SQLEnum, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
     pass
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String, unique=True, index=True)
+    hashed_password: Mapped[str] = mapped_column(String)
+    birth_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    widgets: Mapped[List["Widget"]] = relationship(back_populates="owner", cascade="all, delete-orphan")
+    refresh_tokens: Mapped[List["RefreshToken"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+
+class InviteCode(Base):
+    __tablename__ = "invite_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String, unique=True, index=True)
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    max_uses: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    use_count: Mapped[int] = mapped_column(Integer, default=0)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    creator: Mapped["User"] = relationship()
+
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    token_hash: Mapped[str] = mapped_column(String, unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    user: Mapped["User"] = relationship(back_populates="refresh_tokens")
 
 class WidgetType(str, enum.Enum):
     asset = "asset"
@@ -43,9 +85,12 @@ class Widget(Base):
     __tablename__ = "widgets"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
     type: Mapped[WidgetType] = mapped_column(SQLEnum(WidgetType, name="widget_type"))
     config: Mapped[dict] = mapped_column(JSONB, default=dict)
     layout_x: Mapped[int] = mapped_column(Integer, default=0)
     layout_y: Mapped[int] = mapped_column(Integer, default=0)
     layout_w: Mapped[int] = mapped_column(Integer, default=1)
     layout_h: Mapped[int] = mapped_column(Integer, default=1)
+
+    owner: Mapped[Optional["User"]] = relationship(back_populates="widgets")

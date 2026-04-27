@@ -125,40 +125,216 @@ Phase 1 → Phase 2 → Phase 3 → Phase 4 ──┐
 
 ## v3 — Multi-User
 
-### Auth
+Still local. Adds user accounts, JWT authentication, invite-only registration, a simple admin panel, and a public landing page. The widget system (v2) becomes user-scoped.
 
-- Email/password authentication
-- Invite-only for beta (invite codes or admin-generated links)
-- Open registration planned for post-beta
+### Design Decisions
+
+1. **Auth method**: Email/password only — no OAuth. JWT (stateless) with short-lived access tokens and longer-lived refresh tokens.
+2. **Password policy**: Minimum 8 characters, no complexity requirements.
+3. **Invite-only registration**: Admin creates multi-use invite codes. Open registration planned for post-beta.
+4. **Admin panel**: Minimal — invite code CRUD + user list. No role hierarchy beyond admin/regular.
+5. **User profile**: Email, hashed password, birth date. Additional fields deferred.
+6. **Existing v2 data**: Clean slate — no auto-migration of existing widgets. Users add their own.
+7. **Default widgets for new users**: New York time widget + AAPL, MSFT, BTC-USD asset widgets.
+8. **Password reset**: Email-based reset flow via SMTP from the start. SMTP credentials configured via env vars (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`).
+9. **Landing page**: Public page introducing the service, vision, and creator. Shown to unauthenticated visitors. Login/register accessible from here.
+10. **Frontend routing**: `react-router-dom` added. Three route groups: public (landing, login, register, password reset), protected (dashboard), admin.
+11. **Assets remain global**: `assets` + `price_snapshots` are the shared catalog. User-scoping is at the widget level only.
+12. **Token storage**: Access token in memory, refresh token in `httpOnly` cookie. Axios interceptor handles silent refresh on 401.
+13. **Admin seeding**: First admin created via CLI command (`poetry run python -m app.cli create-admin`). No env-var magic or auto-promotion.
+14. **Deployment**: Local only. HTTPS and domain deferred to post-v3.
+
+### Auth System
+
+**JWT Tokens:**
+
+- Access token: 30 min expiry, stateless, payload contains `user_id` and `is_admin`
+- Refresh token: 7 days expiry, stored in DB for revocation on logout
+- `POST /auth/login` returns access token in body + sets refresh token as `httpOnly` cookie
+- `POST /auth/refresh` validates cookie, rotates refresh token, returns new access token
+
+**Password Hashing:**
+
+- `passlib` with bcrypt
+
+**Password Reset:**
+
+- `POST /auth/forgot-password` — generates a time-limited token (1 hour), sends reset link via SMTP
+- `POST /auth/reset-password` — validates token, updates password, invalidates token
 
 ### Database
 
-- New `users` table (email, hashed password, invite code, etc.)
-- `widgets` table gains a `user_id` column (FK to `users`)
-- `assets` table stays as the **global catalog** — shared across all users
-- User "delete widget" removes the widget, not the underlying asset
-- Garbage collection: remove from `assets` (and stop tracking) only when no widgets reference the asset
+**New tables:**
+
+- `users`: `id`, `email` (unique), `hashed_password`, `birth_date` (nullable), `is_admin` (bool, default false), `created_at`, `updated_at`
+- `invite_codes`: `id`, `code` (unique), `created_by` (FK → users), `max_uses` (nullable — unlimited if null), `use_count` (default 0), `expires_at` (nullable), `created_at`
+- `refresh_tokens`: `id`, `user_id` (FK → users), `token_hash` (unique), `expires_at`, `revoked` (bool, default false), `created_at`
+- `password_reset_tokens`: `id`, `user_id` (FK → users), `token_hash` (unique), `expires_at`, `used` (bool, default false), `created_at`
+
+**Modified tables:**
+
+- `widgets`: adds `user_id` (FK → users, NOT NULL)
+
+**Unchanged:**
+
+- `assets`, `price_snapshots` — remain global shared catalog
 
 ### Backend
 
-- Auth endpoints: register (with invite code), login, logout, session/token refresh
-- All widget/asset/price endpoints become user-scoped
-- Scheduler continues refreshing all assets in the global `assets` table
+**Dependencies to add:**
+
+- `python-jose[cryptography]` — JWT encoding/decoding
+- `passlib[bcrypt]` — password hashing
+- `python-multipart` — form data parsing
+- `aiosmtplib` — async SMTP for password reset emails
+
+**Auth endpoints (`/auth`):**
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/auth/register` | public | email, password, birth_date, invite_code → creates user + default widgets, returns tokens |
+| POST | `/auth/login` | public | email, password → access token + refresh cookie |
+| POST | `/auth/refresh` | cookie | refresh cookie → new access token + rotated refresh cookie |
+| POST | `/auth/logout` | bearer | revokes refresh token |
+| POST | `/auth/forgot-password` | public | email → sends reset link via SMTP |
+| POST | `/auth/reset-password` | public | token + new_password → updates password |
+| GET | `/auth/me` | bearer | returns current user profile |
+
+**Admin endpoints (`/admin`):**
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/admin/invite-codes` | admin | list all invite codes |
+| POST | `/admin/invite-codes` | admin | create code (code, max_uses?, expires_at?) |
+| DELETE | `/admin/invite-codes/{id}` | admin | delete a code |
+| GET | `/admin/users` | admin | list all users (email, birth_date, is_admin, created_at, widget count) |
+
+**Existing endpoints — changes:**
+
+- All widget CRUD (`/widgets/*`) filtered by `current_user.id` via auth dependency
+- `/assets`, `/prices`, `/search`, `/timezones` — remain public (read-only shared catalog)
+- Scheduler continues refreshing all assets in the global `assets` table (unchanged)
+
+**Auth dependencies:**
+
+- `get_current_user` — extracts + validates JWT from `Authorization: Bearer <token>`, returns `User`
+- `require_admin` — calls `get_current_user`, raises 403 if not `is_admin`
+
+**CLI:**
+
+- `poetry run python -m app.cli create-admin --email <email> --password <password>` — creates the first admin user (no invite code required)
 
 ### Frontend
 
-- Login/registration flow
-- No structural changes to the dashboard — it already renders whatever the API returns
+**New dependency:**
+
+- `react-router-dom` — client-side routing
+
+**Pages:**
+
+| Route | Auth | Description |
+|-------|------|-------------|
+| `/` | public | Landing page — service intro, vision, creator. CTA buttons for login/register |
+| `/login` | public | Email + password form |
+| `/register` | public | Email, password, birth date, invite code form |
+| `/forgot-password` | public | Email form → "check your email" message |
+| `/reset-password?token=...` | public | New password form |
+| `/dashboard` | protected | Existing widget grid (unchanged from v2) |
+| `/admin` | admin | Invite code management + user list |
+
+**Auth state management:**
+
+- `AuthContext` provider wrapping the app
+- Access token stored in memory (React state), never in localStorage
+- Refresh token managed as `httpOnly` cookie (browser handles it automatically)
+- Axios interceptor: attaches `Authorization: Bearer <token>` to requests, calls `/auth/refresh` on 401, retries original request
+- `ProtectedRoute` wrapper — redirects to `/login` if unauthenticated
+- `AdminRoute` wrapper — redirects to `/dashboard` if not admin
 
 ### Default Experience
 
-- New users get a preset widget layout (e.g. a few popular assets + a time widget)
-- Consider a tutorial/tips widget for onboarding
+On registration, the backend seeds 4 widgets for the new user:
 
-### Deployment
+| Widget | Type | Config | Position |
+|--------|------|--------|----------|
+| New York | time | `{"timezone": "America/New_York", "label": "New York"}` | (0,0) 1×1 |
+| Apple | asset | `{"asset_id": "AAPL", "label": "Apple"}` | (1,0) 1×1 |
+| Microsoft | asset | `{"asset_id": "MSFT", "label": "Microsoft"}` | (2,0) 1×1 |
+| Bitcoin | asset | `{"asset_id": "BTC-USD", "label": "Bitcoin"}` | (3,0) 1×1 |
 
-- Stays local during v3 development
-- Deploy to VPS/cloud once stable and feature-complete
+Assets (`AAPL`, `MSFT`, `BTC-USD`) are created in the global `assets` table if they don't already exist. The scheduler picks them up on its next refresh cycle.
+
+### Admin Panel
+
+Minimal and simple. Two sections:
+
+**Invite Codes:**
+
+- Table: code, uses (count / max or ∞), expires_at, created_at
+- "Create Code" button → form: code string, optional max uses, optional expiry
+- Delete button per row
+
+**Users:**
+
+- Table: email, birth_date, is_admin, created_at, widget count
+- Read-only for now (no edit/delete users from UI)
+
+### Implementation Phases
+
+**Phase 1 — Backend: User Model + JWT Auth** ✅
+
+- `User`, `InviteCode`, `RefreshToken` models, Alembic migration
+- Password hashing via `bcrypt` directly (passlib incompatible with bcrypt 5.x)
+- JWT utilities (create/verify access + refresh tokens)
+- Auth endpoints: register (with invite code validation), login, refresh, logout, `GET /auth/me`
+- `get_current_user` + `require_admin` dependencies
+- CLI command: `create-admin`
+- `Widget.user_id` FK added (nullable — Phase 3 makes NOT NULL)
+
+**Phase 2 — Backend: Password Reset**
+
+- `PasswordResetToken` model, migration
+- SMTP email service (configured via env vars: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`)
+- `POST /auth/forgot-password` + `POST /auth/reset-password`
+
+**Phase 3 — Backend: User-Scoped Widgets + Admin API**
+
+- Add `user_id` column to `widgets` table (migration, drops existing rows)
+- All widget CRUD filtered by `current_user.id`
+- Default widget seeding logic on registration
+- Admin endpoints: invite code CRUD, user list with widget counts
+
+**Phase 4 — Frontend: Routing + Landing + Auth Pages**
+
+- Install `react-router-dom`, set up route structure
+- Landing page (public — service intro, vision, creator)
+- Login + Register pages with form validation
+- `AuthContext` provider, token management, axios interceptor
+- `ProtectedRoute` + `AdminRoute` guards
+- Redirect unauthenticated users from `/dashboard` to `/login`
+
+**Phase 5 — Frontend: Password Reset + Admin Panel**
+
+- Forgot password page + reset password page
+- Admin panel: invite code management + user list
+- Admin nav link (visible only to admins)
+
+**Phase 6 — Polish + Docs**
+
+- End-to-end testing of full registration → login → dashboard flow
+- Landing page styling and content
+- Error handling polish (expired tokens, invalid invite codes, rate limiting feedback)
+- Update `API.md`, `CLAUDE.md`, `README.md`, `HISTORY.md`
+- Version bump to 3.0.0
+
+**Dependency graph:**
+
+```
+Phase 1 → Phase 2 ──────────────────┐
+    │                                ├→ Phase 5 → Phase 6
+    └→ Phase 3 → Phase 4 ───────────┘
+         (2 & 3 parallel after 1)
+```
 
 ---
 

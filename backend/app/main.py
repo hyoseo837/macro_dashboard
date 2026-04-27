@@ -6,7 +6,7 @@ import logging
 
 from .config import settings
 from .db import SessionLocal
-from .routers import assets, prices, widgets
+from .routers import assets, auth, prices, widgets
 from .services.prices import refresh_all_prices
 
 # Logging setup
@@ -25,6 +25,7 @@ app.add_middleware(
 )
 
 # Routers
+app.include_router(auth.router, tags=["auth"])
 app.include_router(assets.router, tags=["assets"])
 app.include_router(prices.router, tags=["prices"])
 app.include_router(widgets.router, tags=["widgets"])
