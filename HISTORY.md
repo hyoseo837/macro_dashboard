@@ -232,3 +232,16 @@ Before implementation, the following decisions were made:
 - **Dependencies added**: `aiosmtplib`.
 - **Bug fix**: Captured `user.email` before `db.commit()` to avoid SQLAlchemy expired-state error.
 - **Tested**: Full reset flow (forgot → reset → login with new password), token reuse rejection, short password validation, non-existent email (safe 200).
+
+### Phase 3: User-Scoped Widgets + Admin API
+
+- **Migration**: `02aa7e61713a` — deletes existing widgets (clean slate), makes `widgets.user_id` NOT NULL.
+- **Widget CRUD user-scoped**: All widget endpoints (`GET/POST/PATCH/DELETE /widgets`, `PUT /widgets/layout`) now require auth and filter by `current_user.id`. Unauthenticated requests get 403.
+- **Default widget seeding** (`app/services/default_widgets.py`): On registration, 4 widgets are created — New York time + AAPL, MSFT, BTC-USD asset widgets at positions (0,0)–(3,0). Assets are created in the global catalog if they don't exist.
+- **Admin router** (`app/routers/admin.py`): 4 endpoints, all require `is_admin`:
+  - `GET /admin/invite-codes` — list all codes
+  - `POST /admin/invite-codes` — create code (409 if duplicate)
+  - `DELETE /admin/invite-codes/{id}` — delete code
+  - `GET /admin/users` — list users with widget counts (outer join)
+- **Schemas**: Added `UserAdminSchema` with `widget_count` field.
+- **Tested**: User isolation (admin sees 0 widgets, user sees 4), admin access controls (403 for non-admin), invite code CRUD + deletion, unauthenticated widget access blocked.

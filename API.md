@@ -185,9 +185,9 @@ Returns the latest cached price for every configured asset, plus a sparkline ser
 - `change_abs` and `change_pct` are vs. the previous close.
 - Server-side cache TTL: 15 minutes. Client may poll every 60s (it'll mostly hit cache).
 
-### `GET /widgets`
+### `GET /widgets` *(auth required)*
 
-Returns all widgets, ordered by position.
+Returns the current user's widgets, ordered by position.
 
 ```json
 [
@@ -208,9 +208,9 @@ Returns all widgets, ordered by position.
 
 `type`: `"asset"` or `"time"`.
 
-### `POST /widgets`
+### `POST /widgets` *(auth required)*
 
-Creates a widget. Returns 201.
+Creates a widget for the current user. Returns 201.
 
 ```json
 {
@@ -223,21 +223,21 @@ Creates a widget. Returns 201.
 - Asset widgets require `config.asset_id` pointing to an existing asset.
 - Time widgets require `config.timezone` from `GET /timezones`.
 
-### `PATCH /widgets/{id}`
+### `PATCH /widgets/{id}` *(auth required)*
 
-Partial update (config and/or layout fields). Returns updated widget.
+Partial update (config and/or layout fields). Returns updated widget. Only the widget owner can update.
 
 ```json
 { "config": { "asset_id": "tsla", "label": "New Label" } }
 ```
 
-### `DELETE /widgets/{id}`
+### `DELETE /widgets/{id}` *(auth required)*
 
-Deletes a widget (204). If it's an asset widget and no other widget references the same asset, the asset and its price snapshots are also deleted.
+Deletes a widget (204). Only the widget owner can delete. If it's an asset widget and no other widget references the same asset, the asset and its price snapshots are also deleted.
 
-### `PUT /widgets/layout`
+### `PUT /widgets/layout` *(auth required)*
 
-Batch layout update for drag-and-drop.
+Batch layout update for drag-and-drop. Only updates widgets owned by the current user.
 
 ```json
 [
@@ -253,6 +253,55 @@ Returns a sorted list of all valid IANA timezone strings.
 ```json
 ["Africa/Abidjan", "Africa/Accra", "..."]
 ```
+
+## Admin Endpoints
+
+All admin endpoints require `Authorization: Bearer <token>` with an admin user. Returns 403 for non-admin users.
+
+### `GET /admin/invite-codes`
+
+```json
+[
+  {
+    "id": 1,
+    "code": "BETA2026",
+    "created_by": 1,
+    "max_uses": 10,
+    "use_count": 3,
+    "expires_at": null,
+    "created_at": "2026-04-27T05:00:00Z"
+  }
+]
+```
+
+### `POST /admin/invite-codes`
+
+```json
+{ "code": "BETA2026", "max_uses": 10, "expires_at": "2026-12-31T23:59:59Z" }
+```
+
+`max_uses` and `expires_at` are optional (null = unlimited). Returns 201. Errors: 409 (code already exists).
+
+### `DELETE /admin/invite-codes/{id}`
+
+Response: 204 No Content. Errors: 404.
+
+### `GET /admin/users`
+
+```json
+[
+  {
+    "id": 1,
+    "email": "user@example.com",
+    "birth_date": "2000-01-15",
+    "is_admin": false,
+    "created_at": "2026-04-27T05:00:00Z",
+    "widget_count": 4
+  }
+]
+```
+
+Read-only. Ordered by most recently created.
 
 ### `GET /news` — [v4 — deferred]
 

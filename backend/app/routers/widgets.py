@@ -5,8 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import List
 
+from ..auth import get_current_user
 from ..db import get_db
-from ..models import Widget, Asset, WidgetType
+from ..models import Widget, Asset, WidgetType, User
 from ..schemas import WidgetSchema, WidgetCreateSchema, WidgetUpdateSchema, LayoutItemSchema
 
 VALID_TIMEZONES = available_timezones()
@@ -20,13 +21,24 @@ async def list_timezones():
 
 
 @router.get("/widgets", response_model=List[WidgetSchema])
-async def list_widgets(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Widget).order_by(Widget.layout_y, Widget.layout_x))
+async def list_widgets(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Widget)
+        .where(Widget.user_id == user.id)
+        .order_by(Widget.layout_y, Widget.layout_x)
+    )
     return result.scalars().all()
 
 
 @router.post("/widgets", response_model=WidgetSchema, status_code=201)
-async def create_widget(body: WidgetCreateSchema, db: AsyncSession = Depends(get_db)):
+async def create_widget(
+    body: WidgetCreateSchema,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     if body.type == WidgetType.asset:
         asset_id = body.config.get("asset_id")
         if not asset_id:
@@ -41,6 +53,7 @@ async def create_widget(body: WidgetCreateSchema, db: AsyncSession = Depends(get
             raise HTTPException(status_code=422, detail="time widget requires a valid config.timezone")
 
     widget = Widget(
+        user_id=user.id,
         type=body.type,
         config=body.config,
         layout_x=body.layout_x,
@@ -55,8 +68,15 @@ async def create_widget(body: WidgetCreateSchema, db: AsyncSession = Depends(get
 
 
 @router.patch("/widgets/{widget_id}", response_model=WidgetSchema)
-async def update_widget(widget_id: int, body: WidgetUpdateSchema, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Widget).where(Widget.id == widget_id))
+async def update_widget(
+    widget_id: int,
+    body: WidgetUpdateSchema,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Widget).where(Widget.id == widget_id, Widget.user_id == user.id)
+    )
     widget = result.scalar_one_or_none()
     if not widget:
         raise HTTPException(status_code=404, detail="Widget not found")
@@ -78,8 +98,14 @@ async def update_widget(widget_id: int, body: WidgetUpdateSchema, db: AsyncSessi
 
 
 @router.delete("/widgets/{widget_id}", status_code=204)
-async def delete_widget(widget_id: int, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Widget).where(Widget.id == widget_id))
+async def delete_widget(
+    widget_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Widget).where(Widget.id == widget_id, Widget.user_id == user.id)
+    )
     widget = result.scalar_one_or_none()
     if not widget:
         raise HTTPException(status_code=404, detail="Widget not found")
@@ -108,9 +134,15 @@ async def delete_widget(widget_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.put("/widgets/layout")
-async def update_layout(items: List[LayoutItemSchema], db: AsyncSession = Depends(get_db)):
+async def update_layout(
+    items: List[LayoutItemSchema],
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     widget_ids = [item.id for item in items]
-    result = await db.execute(select(Widget).where(Widget.id.in_(widget_ids)))
+    result = await db.execute(
+        select(Widget).where(Widget.id.in_(widget_ids), Widget.user_id == user.id)
+    )
     widgets = {w.id: w for w in result.scalars().all()}
 
     for item in items:

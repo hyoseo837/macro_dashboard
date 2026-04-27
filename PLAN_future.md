@@ -298,12 +298,13 @@ Minimal and simple. Two sections:
 - `POST /auth/forgot-password` + `POST /auth/reset-password`
 - Config: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `FRONTEND_URL`, `RESET_TOKEN_EXPIRE_MINUTES`
 
-**Phase 3 — Backend: User-Scoped Widgets + Admin API**
+**Phase 3 — Backend: User-Scoped Widgets + Admin API** ✅
 
-- Add `user_id` column to `widgets` table (migration, drops existing rows)
+- `widgets.user_id` made NOT NULL (migration deletes orphaned rows first)
 - All widget CRUD filtered by `current_user.id`
-- Default widget seeding logic on registration
-- Admin endpoints: invite code CRUD, user list with widget counts
+- Default widget seeding on registration (NY time + AAPL, MSFT, BTC-USD)
+- Admin router: invite code CRUD + user list with widget counts
+- `UserAdminSchema` with `widget_count` field
 
 **Phase 4 — Frontend: Routing + Landing + Auth Pages**
 

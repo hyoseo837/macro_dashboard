@@ -120,3 +120,14 @@ class InviteCodeSchema(BaseModel):
 
     class Config:
         from_attributes = True
+
+class UserAdminSchema(BaseModel):
+    id: int
+    email: str
+    birth_date: Optional[date] = None
+    is_admin: bool
+    created_at: datetime
+    widget_count: int
+
+    class Config:
+        from_attributes = True

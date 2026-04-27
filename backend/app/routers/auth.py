@@ -19,6 +19,7 @@ from ..schemas import (
     RegisterSchema, LoginSchema, TokenSchema, UserSchema,
     ForgotPasswordSchema, ResetPasswordSchema,
 )
+from ..services.default_widgets import seed_default_widgets
 from ..services.email import send_reset_email
 
 router = APIRouter(prefix="/auth")
@@ -78,6 +79,8 @@ async def register(body: RegisterSchema, response: Response, db: AsyncSession = 
     await db.flush()
 
     invite_code.use_count += 1
+
+    await seed_default_widgets(db, user.id)
 
     access = create_access_token(user.id, user.is_admin)
     refresh = await _create_and_store_refresh(db, user.id)

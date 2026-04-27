@@ -99,7 +99,7 @@ class Widget(Base):
     __tablename__ = "widgets"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     type: Mapped[WidgetType] = mapped_column(SQLEnum(WidgetType, name="widget_type"))
     config: Mapped[dict] = mapped_column(JSONB, default=dict)
     layout_x: Mapped[int] = mapped_column(Integer, default=0)
@@ -107,4 +107,4 @@ class Widget(Base):
     layout_w: Mapped[int] = mapped_column(Integer, default=1)
     layout_h: Mapped[int] = mapped_column(Integer, default=1)
 
-    owner: Mapped[Optional["User"]] = relationship(back_populates="widgets")
+    owner: Mapped["User"] = relationship(back_populates="widgets")
