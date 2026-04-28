@@ -4,11 +4,12 @@ import { X, Search, TrendingUp, Clock, ArrowLeft } from 'lucide-react';
 import { createAsset, searchSymbols, lookupCurrency, type CreateAssetPayload, type SearchResult } from '../api/assets';
 import { createWidget, type CreateWidgetPayload } from '../api/widgets';
 import { apiClient } from '../api/client';
-import type { WidgetType } from '../api/types';
+import type { Widget, WidgetType } from '../api/types';
 
 interface AddWidgetModalProps {
   open: boolean;
   onClose: () => void;
+  widgets: Widget[];
 }
 
 type Step = 'pick-type' | 'config-asset' | 'config-time';
@@ -22,7 +23,32 @@ const fetchTimezones = async (): Promise<string[]> => {
   return data;
 };
 
-const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ open, onClose }) => {
+const GRID_COLS = 6;
+
+function findFreePosition(widgets: Widget[], w: number, h: number): { x: number; y: number } {
+  const occupied = new Set<string>();
+  for (const widget of widgets) {
+    for (let dx = 0; dx < widget.layout_w; dx++) {
+      for (let dy = 0; dy < widget.layout_h; dy++) {
+        occupied.add(`${widget.layout_x + dx},${widget.layout_y + dy}`);
+      }
+    }
+  }
+
+  for (let y = 0; ; y++) {
+    for (let x = 0; x <= GRID_COLS - w; x++) {
+      let fits = true;
+      for (let dx = 0; dx < w && fits; dx++) {
+        for (let dy = 0; dy < h && fits; dy++) {
+          if (occupied.has(`${x + dx},${y + dy}`)) fits = false;
+        }
+      }
+      if (fits) return { x, y };
+    }
+  }
+}
+
+const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ open, onClose, widgets }) => {
   const [step, setStep] = useState<Step>('pick-type');
   const queryClient = useQueryClient();
 
@@ -184,9 +210,12 @@ const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ open, onClose }) => {
       if (err.response?.status !== 409) return;
     }
 
+    const pos = findFreePosition(widgets, 1, 1);
     widgetMutation.mutate({
       type: 'asset' as WidgetType,
       config: { asset_id: assetId, label: displayName.trim() },
+      layout_x: pos.x,
+      layout_y: pos.y,
     });
   };
 
@@ -194,9 +223,12 @@ const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ open, onClose }) => {
     e.preventDefault();
     if (!selectedTz) { setError('Select a timezone'); return; }
     setError('');
+    const pos = findFreePosition(widgets, 1, 1);
     widgetMutation.mutate({
       type: 'time' as WidgetType,
       config: { timezone: selectedTz, label: tzLabel.trim() || tzDisplayName(selectedTz), mode: clockMode },
+      layout_x: pos.x,
+      layout_y: pos.y,
     });
   };
 

@@ -82,7 +82,7 @@ export default function DashboardPage() {
         <WidgetGrid widgets={widgets} editMode={editMode} />
       </div>
 
-      <AddWidgetModal open={addModalOpen} onClose={() => setAddModalOpen(false)} />
+      <AddWidgetModal open={addModalOpen} onClose={() => setAddModalOpen(false)} widgets={widgets} />
     </div>
   );
 }
