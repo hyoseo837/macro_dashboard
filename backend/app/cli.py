@@ -25,6 +25,19 @@ async def _create_admin(email: str, password: str) -> None:
         print(f"Admin user created: {email}")
 
 
+async def _reset_password(email: str, password: str) -> None:
+    async with SessionLocal() as db:
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
+        if not user:
+            print(f"User {email} not found")
+            return
+
+        user.hashed_password = hash_password(password)
+        await db.commit()
+        print(f"Password reset for {email}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="macro-cli")
     sub = parser.add_subparsers(dest="command")
@@ -33,6 +46,10 @@ def main() -> None:
     create_admin.add_argument("--email", required=True)
     create_admin.add_argument("--password", required=True)
 
+    reset_pw = sub.add_parser("reset-password")
+    reset_pw.add_argument("--email", required=True)
+    reset_pw.add_argument("--password", required=True)
+
     args = parser.parse_args()
 
     if args.command == "create-admin":
@@ -40,6 +57,11 @@ def main() -> None:
             print("Error: password must be at least 8 characters")
             return
         asyncio.run(_create_admin(args.email, args.password))
+    elif args.command == "reset-password":
+        if len(args.password) < 8:
+            print("Error: password must be at least 8 characters")
+            return
+        asyncio.run(_reset_password(args.email, args.password))
     else:
         parser.print_help()
 
