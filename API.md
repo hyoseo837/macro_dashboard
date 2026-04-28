@@ -3,13 +3,13 @@
 HTTP contract between `frontend/` and `backend/`. This is the source of truth — if you change a shape here, update both sides.
 
 - Base URL in dev: `http://localhost:8000`
-- Base URL in prod: env var `VITE_API_BASE` on the frontend
+- Base URL in prod: same-origin (empty `VITE_API_BASE`), Caddy reverse proxies API routes to backend
 - All responses are JSON. All timestamps are ISO 8601 UTC strings.
 - All money/price values are numbers (not strings). Currency is included as a sibling field where ambiguous.
 
 ## CORS
 
-Backend must allow the frontend origin. In dev: `http://localhost:5173`.
+Backend must allow the frontend origin. In dev: `http://localhost:5173`. In prod: `https://macro.hyoseo.dev` (set via `CORS_ORIGINS` env var).
 
 ## Authentication
 

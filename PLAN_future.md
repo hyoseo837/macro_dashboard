@@ -382,39 +382,51 @@ New widget type added to the v2 widget system.
 
 ---
 
-## Deployment — VPS + Docker Compose
+## Deployment — DigitalOcean + Docker Compose ✅
 
-Deploy to a single VPS (Hetzner or DigitalOcean) running everything in Docker Compose. Full control, low cost (~$5-6/month).
+Deployed to a DigitalOcean droplet running everything in Docker Compose. Full control, ~$6/month.
 
 **Infrastructure:**
 
-- **VPS**: Hetzner CX22 (2 vCPU, 4 GB RAM) or DigitalOcean $6 droplet
-- **Reverse proxy**: Nginx or Caddy (Caddy auto-provisions HTTPS via Let's Encrypt)
-- **Containers**: Postgres, FastAPI backend (uvicorn), Nginx serving the Vite build output
-- **Domain**: Custom domain with DNS pointed to VPS IP
-- **HTTPS**: Required — JWT cookies need `Secure` flag in production
+- **VPS**: DigitalOcean $6/month droplet (1 vCPU, 1 GB RAM, 25 GB SSD)
+- **Domain**: `macro.hyoseo.dev` — Cloudflare DNS A record (DNS-only, grey cloud) → droplet IP `165.245.235.8`
+- **HTTPS**: Caddy auto-provisions via Let's Encrypt (requires DNS-only mode in Cloudflare, not proxied)
 
-**Docker Compose setup:**
+**Docker Compose setup** (`docker-compose.prod.yml`):
 
-- `postgres` — Postgres 16, data volume for persistence
-- `backend` — FastAPI app, depends on postgres, env vars for `DATABASE_URL`, `SECRET_KEY`, SMTP, etc.
-- `caddy` or `nginx` — serves frontend static build, reverse-proxies `/api` → backend, handles TLS
+- `db` — Postgres 16 Alpine, data persisted in Docker volume, healthcheck for startup ordering
+- `backend` — Python 3.12 slim, Poetry install (`--only main --no-root`), runs `alembic upgrade head` then uvicorn
+- `caddy` — Multi-stage: Node 22 builds Vite app (with `VITE_API_BASE=""`), Caddy 2 serves static files + reverse proxies API routes to backend
 
-**Production config changes needed:**
+**Production config** (`.env.production` on droplet, not in git):
 
-- `CORS_ORIGINS` → production domain
-- `SECRET_KEY` → fixed secret (not auto-generated)
-- `FRONTEND_URL` → production URL (for password reset emails)
-- `SMTP_*` → real SMTP credentials (e.g., Gmail app password, Resend, or Mailgun)
-- Set `Secure`, `SameSite=Lax` on refresh token cookie
-- Disable debug/reload mode on uvicorn
-- Frontend `VITE_API_BASE` → production API URL (or same-origin via reverse proxy)
+- `DOMAIN` — `macro.hyoseo.dev`
+- `POSTGRES_PASSWORD` — database password
+- `SECRET_KEY` — JWT signing secret
+- `SMTP_*` — optional, for password reset emails
+
+**Caddyfile routing** (`frontend/Caddyfile`):
+
+- API routes (`/auth/*`, `/admin/*`, `/prices/*`, `/widgets/*`, `/timezones/*`, `/health`) → reverse proxy to backend
+- Asset API routes (`/assets`, `/assets/search`, `/assets/currency`) → reverse proxy to backend (exact paths to avoid catching Vite's `/assets/index-*.js` static files)
+- Everything else → static files with SPA fallback (`try_files {path} /index.html`)
+
+**Deploy workflow**: develop locally → commit & push → SSH → `macro-deploy` (alias for `git pull` + `docker compose up -d --build`)
+
+**Droplet aliases** (in `/root/.bashrc`):
+
+- `macro-deploy` — pull + rebuild all containers
+- `macro-logs` — tail backend logs
+- `macro-backup` — pg_dump to `~/backups/`
+- `macro-status` — show container status
+- `macro-restart` — restart without rebuilding
 
 **Backup:**
 
-- Postgres: `pg_dump` cron to local or object storage (Hetzner Storage Box or S3-compatible)
+- Manual: `macro-backup` alias runs `pg_dump` to `~/backups/`
+- Future: cron job for automated backups to object storage
 
-**CI/CD (optional):**
+**CI/CD (future, optional):**
 
 - GitHub Actions: build frontend, build Docker image, SSH deploy or push to container registry
 

@@ -289,4 +289,48 @@ Before implementation, the following decisions were made:
 - **Backend**: Live on `:8000`. Auth (register, login, refresh, logout, me, forgot-password, reset-password), admin (invite-codes CRUD, user list), widget CRUD (user-scoped), assets, prices, timezones.
 - **Frontend**: Live on `:5173`. Routes: `/` (landing), `/login`, `/register`, `/forgot-password`, `/reset-password`, `/dashboard` (protected), `/admin` (admin-only), `*` (404). Full auth flow with silent token refresh and session expiry redirect.
 - **Database**: 7 tables — `users`, `invite_codes`, `refresh_tokens`, `password_reset_tokens`, `assets`, `price_snapshots`, `widgets`.
-- **Next**: v4 (news widgets) or deployment.
+
+---
+
+## 2026-04-28: Production Deployment
+
+### Infrastructure Setup
+
+- **VPS**: DigitalOcean $6/month droplet (1 vCPU, 1 GB RAM, 25 GB SSD), IP `165.245.235.8`.
+- **Domain**: `macro.hyoseo.dev` — Cloudflare DNS A record pointing to droplet IP. DNS-only mode (grey cloud) so Caddy can provision its own HTTPS certificate via Let's Encrypt.
+- **SSH**: Key-based authentication to droplet.
+
+### Docker Production Config
+
+- **`docker-compose.prod.yml`**: Three services — Postgres 16 (with healthcheck), FastAPI backend, Caddy (frontend + reverse proxy). All config via `.env.production` (not in git).
+- **`backend/Dockerfile`**: Python 3.12 slim, Poetry install (`--only main --no-root`), runs `alembic upgrade head` then uvicorn on port 8000.
+- **`frontend/Dockerfile`**: Multi-stage — Node 22 builds Vite app (with `VITE_API_BASE=""`), Caddy 2 Alpine serves the static output.
+- **`frontend/Caddyfile`**: Reverse proxies API routes to backend, serves static files with SPA fallback. Exact path matchers for `/assets`, `/assets/search`, `/assets/currency` to avoid catching Vite's `/assets/index-*.js` static files.
+
+### Bug Fixes During Deployment
+
+- **Poetry `--no-dev` removed in v2**: Changed to `--only main --no-root` in backend Dockerfile.
+- **White screen**: Caddyfile `handle /assets*` matched both API `/assets` endpoint and Vite's built static files at `/assets/index-*.js`. Fixed with exact path matchers.
+- **Login failed**: `VITE_API_BASE` was empty string in production build, but `||` operator treated it as falsy and fell back to `localhost:8000`. Fixed by changing to `??` (nullish coalescing) in `frontend/src/api/client.ts`.
+- **CLI `reset-password`**: Added `reset-password` command to `backend/app/cli.py` for resetting passwords on the server.
+
+### Widget Overlap Fix
+
+- New widgets were always placed at `(0,0)`, overlapping existing widgets. Added `findFreePosition()` in `AddWidgetModal.tsx` that scans the grid for the first available cell.
+
+### Operational Aliases
+
+Added shell aliases on the droplet (`/root/.bashrc`):
+- `macro-deploy` — `git pull` + `docker compose up -d --build`
+- `macro-logs` — tail backend logs
+- `macro-backup` — `pg_dump` to `~/backups/`
+- `macro-status` — show container status
+- `macro-restart` — restart without rebuilding
+
+### Current State (v3 deployed)
+
+- **Version**: 3.0.0
+- **Production**: Live at **https://macro.hyoseo.dev**
+- **Local dev**: Backend on `:8000`, frontend on `:5173`
+- **Deploy workflow**: develop locally → commit & push → SSH → `macro-deploy`
+- **Next**: v4 (news widgets).

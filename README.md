@@ -2,9 +2,11 @@
 
 A single-screen financial dashboard. Asset prices on one page, no tab-switching.
 
+**Live at [macro.hyoseo.dev](https://macro.hyoseo.dev)**
+
 Built and used by Hyoseo Lee.
 
-## Current state — v3 (complete)
+## Current state — v3 (complete, deployed)
 
 - **Multi-user auth**: Email/password registration with invite codes, JWT access + refresh tokens
 - **Password reset**: Email-based reset flow via SMTP (falls back to console logging)
@@ -44,17 +46,28 @@ npm install
 npm run dev                   # :5173
 ```
 
+## Production deployment
+
+Deployed on a DigitalOcean droplet (~$6/month) with Docker Compose:
+
+- **Postgres 16** — data in Docker volume
+- **FastAPI backend** — runs migrations on startup
+- **Caddy** — serves Vite build + reverse proxies API + auto-HTTPS via Let's Encrypt
+
+Deploy: `ssh root@165.245.235.8` → `macro-deploy`
+
 ## Project layout
 
 ```
 macro_dashboard/
-  README.md           this file
-  API.md              HTTP API contract (frontend <-> backend)
-  PLAN_future.md      roadmap for v2–v4
-  HISTORY.md          dev log
-  CLAUDE.md           AI assistant instructions
-  backend/            FastAPI service
-  frontend/           Vite + React SPA
+  README.md              this file
+  API.md                 HTTP API contract (frontend <-> backend)
+  PLAN_future.md         roadmap for v2–v4
+  HISTORY.md             dev log
+  CLAUDE.md              AI assistant instructions
+  docker-compose.prod.yml  production orchestration
+  backend/               FastAPI service
+  frontend/              Vite + React SPA
 ```
 
 ## How to work on this
@@ -69,5 +82,5 @@ See [PLAN_future.md](PLAN_future.md) for full details.
 |---------|-------|--------|
 | **v1** | Price Dashboard | done |
 | **v2** | Widget System & Grid | done |
-| **v3** | Multi-User | done |
+| **v3** | Multi-User | done, deployed |
 | **v4** | News & Media | planned |

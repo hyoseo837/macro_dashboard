@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-v3 (multi-user) is complete. Backend on `:8000`, frontend on `:5173`, Postgres in Docker on **host port 5433**, `price_snapshots` refreshed every 15 min. [PLAN_future.md](PLAN_future.md) and [API.md](API.md) are design docs — trust the shipped code when they disagree.
+v3 (multi-user) is complete and deployed to **https://macro.hyoseo.dev** (DigitalOcean droplet). Local dev: backend on `:8000`, frontend on `:5173`, Postgres in Docker on **host port 5433**, `price_snapshots` refreshed every 15 min. [PLAN_future.md](PLAN_future.md) and [API.md](API.md) are design docs — trust the shipped code when they disagree.
 
 ## Scope discipline
 
-v3 is in progress. Anything related to news (RSS, Anthropic summarization, `/news` endpoint, `news_articles` table) is v4 scope — do not add `feedparser`, `anthropic`, or news-related files.
+Anything related to news (RSS, Anthropic summarization, `/news` endpoint, `news_articles` table) is v4 scope — do not add `feedparser`, `anthropic`, or news-related files.
 
 ## Architecture
 
@@ -25,12 +25,13 @@ The contract between halves is [API.md](API.md). If a shape changes, update `API
 - **Assets are a shared catalog**: `assets` table stores canonical Yahoo Finance metadata. Widgets reference assets via `config.asset_id`. Display names are widget-owned (`config.label`), not asset-owned.
 - **Orphan cleanup**: Deleting the last widget referencing an asset also deletes the asset and its snapshots — except for protected default assets (AAPL, MSFT, BTC-USD) which are preserved so new users get price data immediately.
 - `price_snapshots` is a **cache** (one row per asset, overwritten via `ON CONFLICT DO UPDATE`) — not a history table.
-- **Auth**: JWT access tokens (30 min) in memory, refresh tokens (7 days) as `httpOnly` cookies. First admin created via `poetry run python -m app.cli create-admin`. Registration requires an invite code created by an admin.
+- **Auth**: JWT access tokens (30 min) in memory, refresh tokens (7 days) as `httpOnly` cookies. First admin created via `poetry run python -m app.cli create-admin`. Password reset via `poetry run python -m app.cli reset-password`. Registration requires an invite code created by an admin.
 - **Default widgets**: On registration, new users get 4 widgets (AAPL, MSFT, BTC-USD asset widgets + New York time widget). Default assets are also ensured on backend startup.
 - Sparkline = last 30 daily closes, stored as jsonb (`{date, price}[]`). May be shorter; don't pad.
 - Korean ETF symbols (`379800.KS`, `133690.KS`) sometimes return empty from Yahoo. `fetch_price_data` wraps each symbol in try/except and logs failures — one bad ticker must not break the batch.
-- CORS origins come from the `CORS_ORIGINS` env var (default `http://localhost:5173`). Frontend base URL comes from `VITE_API_BASE` (default `http://localhost:8000`).
+- CORS origins come from the `CORS_ORIGINS` env var (default `http://localhost:5173`). Frontend base URL comes from `VITE_API_BASE` (default `http://localhost:8000`). Uses `??` (not `||`) so empty string works for same-origin in production.
 - Postgres host-mapped to `5433` in [backend/docker-compose.yml](backend/docker-compose.yml).
+- **New widget placement**: `findFreePosition()` scans the grid for the first open cell — new widgets no longer overlap existing ones.
 
 ## Commands
 
@@ -57,6 +58,30 @@ npm run lint      # eslint .
 The user runs the backend and frontend themselves (`poetry run uvicorn app.main:app --reload` and `npm run dev`). Do not start or restart these servers — just `curl` against `:8000` / `:5173` to test.
 
 No test suite exists yet. `pytest` is listed as a dev dep in `pyproject.toml` but there is no `tests/` directory; don't claim to have run tests without adding them.
+
+## Deployment
+
+Production runs on a DigitalOcean droplet at **https://macro.hyoseo.dev** (IP: `165.245.235.8`). DNS managed via Cloudflare (A record, DNS-only / grey cloud — Caddy handles HTTPS).
+
+**Production stack** (`docker-compose.prod.yml`):
+
+- `db` — Postgres 16 Alpine, data in Docker volume
+- `backend` — FastAPI (same Dockerfile as dev, runs migrations on startup)
+- `caddy` — Multi-stage build: Node 22 builds Vite app → Caddy 2 serves static files + reverse proxies API routes to backend
+
+**Config**: `.env.production` on the droplet (not in git). Required vars: `DOMAIN`, `POSTGRES_PASSWORD`, `SECRET_KEY`. Optional: `SMTP_*` for password reset emails.
+
+**Droplet aliases** (in `/root/.bashrc`):
+
+```bash
+macro-deploy    # git pull + rebuild all containers
+macro-logs      # tail backend logs
+macro-backup    # pg_dump to ~/backups/
+macro-status    # show container status
+macro-restart   # restart without rebuilding
+```
+
+**Deploy workflow**: develop locally → commit & push → SSH into droplet → `macro-deploy`.
 
 ## Alembic notes
 
