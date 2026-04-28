@@ -328,13 +328,16 @@ Minimal and simple. Two sections:
 - Backend: protected asset IDs — default assets are not deleted during orphan cleanup
 - Default widget layout updated: AAPL (0,0 1x1), MSFT (1,0 1x1), New York time (2,0 2x2), BTC-USD (4,0 1x1)
 
-**Phase 6 — Polish + Docs**
+**Phase 6 — Polish + Docs** ✅
 
-- End-to-end testing of full registration → login → dashboard flow
-- Landing page styling and content
-- Error handling polish (expired tokens, invalid invite codes, rate limiting feedback)
-- Update `API.md`, `CLAUDE.md`, `README.md`, `HISTORY.md`
-- Version bump to 3.0.0
+- Version bump to 3.0.0 (`package.json`, `pyproject.toml`)
+- Fixed `overflow: hidden` on `#root` — was preventing scroll on landing, auth, and admin pages. Dashboard now uses `.dashboard-layout` wrapper for its own overflow containment
+- Fixed TypeScript build errors: `react-grid-layout` v2 API changes (`isDraggable`/`isResizable` → `static` per-item, `compactType={null}` → `compactor={noCompactor}`), `useRef` initial value requirements
+- Auth interceptor: expired refresh token now redirects to `/login` and clears query cache
+- Landing page responsive: added 2-col feature grid breakpoint at 900px
+- 404 catch-all route (`NotFoundPage`) for unknown paths
+- End-to-end API testing of auth flow (register, login, refresh, logout, forgot/reset password, error cases)
+- Docs updated in Phase 5 (README, API.md, CLAUDE.md, GEMINI.md, HISTORY.md, PLAN_future.md)
 
 **Dependency graph:**
 
@@ -379,8 +382,46 @@ New widget type added to the v2 widget system.
 
 ---
 
+## Deployment — VPS + Docker Compose
+
+Deploy to a single VPS (Hetzner or DigitalOcean) running everything in Docker Compose. Full control, low cost (~$5-6/month).
+
+**Infrastructure:**
+
+- **VPS**: Hetzner CX22 (2 vCPU, 4 GB RAM) or DigitalOcean $6 droplet
+- **Reverse proxy**: Nginx or Caddy (Caddy auto-provisions HTTPS via Let's Encrypt)
+- **Containers**: Postgres, FastAPI backend (uvicorn), Nginx serving the Vite build output
+- **Domain**: Custom domain with DNS pointed to VPS IP
+- **HTTPS**: Required — JWT cookies need `Secure` flag in production
+
+**Docker Compose setup:**
+
+- `postgres` — Postgres 16, data volume for persistence
+- `backend` — FastAPI app, depends on postgres, env vars for `DATABASE_URL`, `SECRET_KEY`, SMTP, etc.
+- `caddy` or `nginx` — serves frontend static build, reverse-proxies `/api` → backend, handles TLS
+
+**Production config changes needed:**
+
+- `CORS_ORIGINS` → production domain
+- `SECRET_KEY` → fixed secret (not auto-generated)
+- `FRONTEND_URL` → production URL (for password reset emails)
+- `SMTP_*` → real SMTP credentials (e.g., Gmail app password, Resend, or Mailgun)
+- Set `Secure`, `SameSite=Lax` on refresh token cookie
+- Disable debug/reload mode on uvicorn
+- Frontend `VITE_API_BASE` → production API URL (or same-origin via reverse proxy)
+
+**Backup:**
+
+- Postgres: `pg_dump` cron to local or object storage (Hetzner Storage Box or S3-compatible)
+
+**CI/CD (optional):**
+
+- GitHub Actions: build frontend, build Docker image, SSH deploy or push to container registry
+
+---
+
 ## Additional future features
 
-- mobile frendily ui, PWA
+- mobile friendly ui, PWA
 - chrome extension
 - new tab

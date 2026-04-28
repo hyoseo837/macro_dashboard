@@ -4,9 +4,7 @@ A single-screen financial dashboard. Asset prices on one page, no tab-switching.
 
 Built and used by Hyoseo Lee.
 
-## Current state — v3 (in progress)
-
-v2 (widget system) is complete. v3 (multi-user) is in progress — Phases 1–5 done, Phase 6 (polish) remains.
+## Current state — v3 (complete)
 
 - **Multi-user auth**: Email/password registration with invite codes, JWT access + refresh tokens
 - **Password reset**: Email-based reset flow via SMTP (falls back to console logging)
@@ -71,5 +69,5 @@ See [PLAN_future.md](PLAN_future.md) for full details.
 |---------|-------|--------|
 | **v1** | Price Dashboard | done |
 | **v2** | Widget System & Grid | done |
-| **v3** | Multi-User | in progress (Phase 6 remaining) |
+| **v3** | Multi-User | done |
 | **v4** | News & Media | planned |

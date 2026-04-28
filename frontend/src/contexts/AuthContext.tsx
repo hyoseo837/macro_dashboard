@@ -63,6 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             refreshingRef.current = null;
             setToken(null);
             setUser(null);
+            queryClient.clear();
+            window.location.href = '/login';
           }
         }
         return Promise.reject(error);

@@ -43,7 +43,7 @@ const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ open, onClose }) => {
   const [currency, setCurrency] = useState('');
   const [loadingCurrency, setLoadingCurrency] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // ── Time state ──
   const [tzQuery, setTzQuery] = useState('');

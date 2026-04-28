@@ -3,7 +3,7 @@
 ## Project Overview
 `macro_dashboard` is a single-screen financial dashboard designed to build a habit of "looking around" by centralizing societal and financial information. It prioritizes zero-friction data consumption through a high-density, single-page layout.
 
-- **Status**: v3 (multi-user) in progress — Phases 1–5 done, Phase 6 (polish) remains. v1 (prices) and v2 (widget system) are complete.
+- **Status**: v3 (multi-user) complete. v1 (prices) and v2 (widget system) also complete.
 - **Architecture**: Decoupled FastAPI backend and Vite+React frontend.
 - **Source of Truth**: `API.md` defines the definitive HTTP contract between systems.
 

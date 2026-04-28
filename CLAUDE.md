@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-v2 is complete. v3 (multi-user) is in progress — Phases 1–5 are done, Phase 6 (polish) remains. Backend on `:8000`, frontend on `:5173`, Postgres in Docker on **host port 5433**, `price_snapshots` refreshed every 15 min. [PLAN_future.md](PLAN_future.md) and [API.md](API.md) are design docs — trust the shipped code when they disagree.
+v3 (multi-user) is complete. Backend on `:8000`, frontend on `:5173`, Postgres in Docker on **host port 5433**, `price_snapshots` refreshed every 15 min. [PLAN_future.md](PLAN_future.md) and [API.md](API.md) are design docs — trust the shipped code when they disagree.
 
 ## Scope discipline
 

@@ -45,7 +45,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <>
+    <div className="dashboard-layout">
       <div className="top-strip">
         <div className="page-title"><span>///</span>Macro</div>
         <div className="top-strip-right">
@@ -83,6 +83,6 @@ export default function DashboardPage() {
       </div>
 
       <AddWidgetModal open={addModalOpen} onClose={() => setAddModalOpen(false)} />
-    </>
+    </div>
   );
 }

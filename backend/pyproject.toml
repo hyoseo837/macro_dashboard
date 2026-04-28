@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "macro-dashboard-backend"
-version = "2.0.0"
+version = "3.0.0"
 description = "FastAPI backend for macro_dashboard"
 authors = ["Hyoseo Lee <hyoseo@example.com>"]
 

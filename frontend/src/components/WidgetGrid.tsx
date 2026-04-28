@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { ResponsiveGridLayout, useContainerWidth } from 'react-grid-layout';
+import { ResponsiveGridLayout, useContainerWidth, noCompactor } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -57,7 +57,7 @@ export default function WidgetGrid({ widgets, editMode }: WidgetGridProps) {
   };
 
   const handleLayoutChange = useCallback(
-    (layout: any[]) => {
+    (layout: readonly { i: string; x: number; y: number; w: number; h: number }[], _layouts?: Record<string, unknown>) => {
       const sizeMap: Record<string, { w: number; h: number }> = {};
       for (const l of layout) {
         sizeMap[l.i] = { w: l.w, h: l.h };
@@ -69,7 +69,7 @@ export default function WidgetGrid({ widgets, editMode }: WidgetGridProps) {
       if (debounceRef.current) clearTimeout(debounceRef.current);
 
       debounceRef.current = setTimeout(() => {
-        const items = layout.map((l: any) => ({
+        const items = layout.map((l) => ({
           id: Number(l.i),
           layout_x: l.x,
           layout_y: l.y,
@@ -92,10 +92,7 @@ export default function WidgetGrid({ widgets, editMode }: WidgetGridProps) {
         cols={COLS}
         rowHeight={ROW_HEIGHT}
         margin={MARGIN}
-        isDraggable={editMode}
-        isResizable={editMode}
-        compactType={null}
-        preventCollision={true}
+        compactor={noCompactor}
         onLayoutChange={handleLayoutChange}
       >
         {widgets.map((widget) => {

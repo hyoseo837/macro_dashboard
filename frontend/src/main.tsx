@@ -11,6 +11,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import DashboardPage from './pages/DashboardPage'
 import AdminPage from './pages/AdminPage'
+import NotFoundPage from './pages/NotFoundPage'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -43,6 +44,7 @@ createRoot(document.getElementById('root')!).render(
                 <AdminPage />
               </AdminRoute>
             } />
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>

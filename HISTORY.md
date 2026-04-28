@@ -273,9 +273,20 @@ Before implementation, the following decisions were made:
 - **Default widget layout changed**: AAPL (0,0 1x1), MSFT (1,0 1x1), New York time (2,0 2x2), BTC-USD (4,0 1x1) — time widget now 2x2 and positioned third.
 - **CSS**: Admin page styles (header, tables, form rows, badges, buttons, responsive), auth extras (hint text, success messages).
 
-### Current State (v3 Phase 5 complete)
+### Phase 6: Polish + Docs
 
-- **Backend**: Live on `:8000`. Auth endpoints: register, login, refresh, logout, me, forgot-password, reset-password. Admin endpoints: invite-codes CRUD, user list. Widget CRUD is user-scoped. Assets/prices/timezones remain public.
-- **Frontend**: Live on `:5173`. Routes: `/` (landing), `/login`, `/register`, `/forgot-password`, `/reset-password`, `/dashboard` (protected), `/admin` (admin-only). Full auth flow with silent token refresh.
+- **Version bump**: `2.0.0` → `3.0.0` in `package.json` and `pyproject.toml`. UI header already showed v3.0.0 since Phase 4.
+- **Scroll fix**: Removed `overflow: hidden` from `html, body, #root` — was preventing scroll on landing, auth, and admin pages on small screens. Dashboard now wrapped in `.dashboard-layout` with its own `overflow: hidden` to preserve the contained scrolling behavior.
+- **TypeScript build fix**: `react-grid-layout` v2 dropped grid-level `isDraggable`/`isResizable` props. Switched to `static` per-item (already in place) and removed the deprecated props. Replaced `compactType={null}` with `compactor={noCompactor}`. Fixed `useRef` calls missing required initial values.
+- **Auth session expiry redirect**: When the 401 interceptor's refresh call fails (e.g., expired refresh token), the user is now redirected to `/login` with query cache cleared, instead of silently staying on the protected page.
+- **Landing page responsive**: Added 900px breakpoint for 2-column feature grid (was jumping from 4-col to 1-col at 600px).
+- **404 catch-all**: Added `NotFoundPage` + `<Route path="*">` — unknown routes show a styled 404 page with links to home and dashboard.
+- **End-to-end API testing**: Verified full auth flow via curl — register (short password, bad invite code, duplicate email), login (bad credentials), refresh, logout, forgot-password (non-existent email returns 200), reset-password (invalid token). All error cases return correct status codes and messages.
+
+### Current State (v3 complete)
+
+- **Version**: 3.0.0
+- **Backend**: Live on `:8000`. Auth (register, login, refresh, logout, me, forgot-password, reset-password), admin (invite-codes CRUD, user list), widget CRUD (user-scoped), assets, prices, timezones.
+- **Frontend**: Live on `:5173`. Routes: `/` (landing), `/login`, `/register`, `/forgot-password`, `/reset-password`, `/dashboard` (protected), `/admin` (admin-only), `*` (404). Full auth flow with silent token refresh and session expiry redirect.
 - **Database**: 7 tables — `users`, `invite_codes`, `refresh_tokens`, `password_reset_tokens`, `assets`, `price_snapshots`, `widgets`.
-- **Remaining**: Phase 6 — end-to-end testing, landing page polish, error handling polish, doc updates, version bump to 3.0.0.
+- **Next**: v4 (news widgets) or deployment.

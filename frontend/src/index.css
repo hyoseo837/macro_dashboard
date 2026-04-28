@@ -21,7 +21,6 @@
 
 html, body, #root {
   height: 100vh;
-  overflow: hidden;
 }
 
 body {
@@ -37,6 +36,13 @@ body {
 #root {
   display: flex;
   flex-direction: column;
+}
+
+.dashboard-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
 }
 
 /* ── TOP STRIP ── */
@@ -1539,7 +1545,16 @@ body {
   padding: 20px 0;
 }
 
-/* ── MOBILE RESPONSIVENESS ── */
+/* ── RESPONSIVENESS ── */
+@media (max-width: 900px) {
+  .landing-features {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .landing-hero h1 {
+    font-size: 32px;
+  }
+}
+
 @media (max-width: 600px) {
   .top-strip {
     padding: 14px 18px 10px;
