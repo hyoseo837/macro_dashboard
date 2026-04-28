@@ -9,19 +9,26 @@ DEFAULT_ASSETS = [
     {"id": "BTC-USD", "display_name": "Bitcoin USD", "symbol": "BTC-USD", "category": "crypto", "currency": "USD"},
 ]
 
+PROTECTED_ASSET_IDS = {a["id"] for a in DEFAULT_ASSETS}
+
 DEFAULT_WIDGETS = [
-    {"type": WidgetType.time, "config": {"timezone": "America/New_York", "label": "New York"}, "x": 0},
-    {"type": WidgetType.asset, "config": {"asset_id": "AAPL", "label": "Apple"}, "x": 1},
-    {"type": WidgetType.asset, "config": {"asset_id": "MSFT", "label": "Microsoft"}, "x": 2},
-    {"type": WidgetType.asset, "config": {"asset_id": "BTC-USD", "label": "Bitcoin"}, "x": 3},
+    {"type": WidgetType.asset, "config": {"asset_id": "AAPL", "label": "Apple"}, "x": 0, "y": 0, "w": 1, "h": 1},
+    {"type": WidgetType.asset, "config": {"asset_id": "MSFT", "label": "Microsoft"}, "x": 1, "y": 0, "w": 1, "h": 1},
+    {"type": WidgetType.time, "config": {"timezone": "America/New_York", "label": "New York"}, "x": 2, "y": 0, "w": 2, "h": 2},
+    {"type": WidgetType.asset, "config": {"asset_id": "BTC-USD", "label": "Bitcoin"}, "x": 4, "y": 0, "w": 1, "h": 1},
 ]
 
 
-async def seed_default_widgets(db: AsyncSession, user_id: int) -> None:
+async def ensure_default_assets(db: AsyncSession) -> None:
     for asset_data in DEFAULT_ASSETS:
         result = await db.execute(select(Asset).where(Asset.id == asset_data["id"]))
         if not result.scalar_one_or_none():
             db.add(Asset(**asset_data))
+    await db.flush()
+
+
+async def seed_default_widgets(db: AsyncSession, user_id: int) -> None:
+    await ensure_default_assets(db)
 
     for w in DEFAULT_WIDGETS:
         db.add(Widget(
@@ -29,9 +36,9 @@ async def seed_default_widgets(db: AsyncSession, user_id: int) -> None:
             type=w["type"],
             config=w["config"],
             layout_x=w["x"],
-            layout_y=0,
-            layout_w=1,
-            layout_h=1,
+            layout_y=w["y"],
+            layout_w=w["w"],
+            layout_h=w["h"],
         ))
 
     await db.flush()

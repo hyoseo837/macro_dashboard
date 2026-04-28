@@ -9,6 +9,7 @@ from ..auth import get_current_user
 from ..db import get_db
 from ..models import Widget, Asset, WidgetType, User
 from ..schemas import WidgetSchema, WidgetCreateSchema, WidgetUpdateSchema, LayoutItemSchema
+from ..services.default_widgets import PROTECTED_ASSET_IDS
 
 VALID_TIMEZONES = available_timezones()
 
@@ -117,7 +118,7 @@ async def delete_widget(
     await db.delete(widget)
     await db.flush()
 
-    if asset_id:
+    if asset_id and asset_id not in PROTECTED_ASSET_IDS:
         count_result = await db.execute(
             select(func.count())
             .select_from(Widget)

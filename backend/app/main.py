@@ -7,6 +7,7 @@ import logging
 from .config import settings
 from .db import SessionLocal
 from .routers import admin, assets, auth, prices, widgets
+from .services.default_widgets import ensure_default_assets
 from .services.prices import refresh_all_prices
 
 # Logging setup
@@ -38,6 +39,11 @@ async def startup_event():
     async def scheduled_refresh():
         async with SessionLocal() as db:
             await refresh_all_prices(db)
+
+    # Ensure default assets exist so they get price data
+    async with SessionLocal() as db:
+        await ensure_default_assets(db)
+        await db.commit()
 
     # Refresh immediately on startup
     asyncio.create_task(scheduled_refresh())

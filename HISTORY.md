@@ -257,3 +257,25 @@ Before implementation, the following decisions were made:
 - **Dashboard** (`pages/DashboardPage.tsx`): Extracted from `App.tsx`. Added logout button and user email in header. Version bumped to v3.0.0 in UI.
 - **API layer**: `api/auth.ts` with login, register, refresh, logout, getMe. `User` and `TokenResponse` types added. `apiClient` now uses `withCredentials: true`.
 - **CSS**: Landing page (nav, hero, features grid, footer), auth pages (card layout, form inputs, error states, buttons). Responsive for mobile.
+
+### Phase 5: Frontend — Password Reset + Admin Panel
+
+- **ForgotPasswordPage** (`pages/ForgotPasswordPage.tsx`): Email input form. On submit, calls `POST /auth/forgot-password`. Shows confirmation message regardless of whether the email exists. Links back to login.
+- **ResetPasswordPage** (`pages/ResetPasswordPage.tsx`): Reads `?token=` from URL search params. New password + confirmation form with min 8 char and match validation. Calls `POST /auth/reset-password`. Handles missing/invalid/expired tokens gracefully.
+- **AdminPage** (`pages/AdminPage.tsx`): Two sections — Invite Codes (create with random code generator, optional max uses, delete) and Users (read-only table: email, admin badge, widget count, join date). Uses `api/admin.ts` module with React Query for data fetching and mutations.
+- **Admin API module** (`api/admin.ts`): `getInviteCodes`, `createInviteCode`, `deleteInviteCode`, `getUsers` — typed with `InviteCode`, `AdminUser`, `CreateInvitePayload` interfaces.
+- **Routes added**: `/forgot-password`, `/reset-password`, `/admin` (wrapped in `AdminRoute`).
+- **Dashboard**: Admin button (Shield icon) visible only to `is_admin` users, navigates to `/admin`.
+- **AuthContext fix**: `queryClient.clear()` on login, register, and logout to prevent cross-user data leakage (e.g., seeing a previous user's widgets after switching accounts).
+- **Backend — default asset protection**:
+  - `ensure_default_assets()` extracted from `seed_default_widgets()` — now also called on startup in `main.py` so default assets exist and get price data even before any user registers.
+  - `PROTECTED_ASSET_IDS` set: default assets (AAPL, MSFT, BTC-USD) are excluded from orphan cleanup on widget delete.
+- **Default widget layout changed**: AAPL (0,0 1x1), MSFT (1,0 1x1), New York time (2,0 2x2), BTC-USD (4,0 1x1) — time widget now 2x2 and positioned third.
+- **CSS**: Admin page styles (header, tables, form rows, badges, buttons, responsive), auth extras (hint text, success messages).
+
+### Current State (v3 Phase 5 complete)
+
+- **Backend**: Live on `:8000`. Auth endpoints: register, login, refresh, logout, me, forgot-password, reset-password. Admin endpoints: invite-codes CRUD, user list. Widget CRUD is user-scoped. Assets/prices/timezones remain public.
+- **Frontend**: Live on `:5173`. Routes: `/` (landing), `/login`, `/register`, `/forgot-password`, `/reset-password`, `/dashboard` (protected), `/admin` (admin-only). Full auth flow with silent token refresh.
+- **Database**: 7 tables — `users`, `invite_codes`, `refresh_tokens`, `password_reset_tokens`, `assets`, `price_snapshots`, `widgets`.
+- **Remaining**: Phase 6 — end-to-end testing, landing page polish, error handling polish, doc updates, version bump to 3.0.0.

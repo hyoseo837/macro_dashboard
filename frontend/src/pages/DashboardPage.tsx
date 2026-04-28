@@ -5,7 +5,7 @@ import { usePrices } from '../hooks/usePrices';
 import { useAuth } from '../contexts/AuthContext';
 import WidgetGrid from '../components/WidgetGrid';
 import AddWidgetModal from '../components/AddWidgetModal';
-import { Settings, Lock, Plus, LogOut } from 'lucide-react';
+import { Settings, Lock, Plus, LogOut, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function DashboardPage() {
@@ -62,6 +62,12 @@ export default function DashboardPage() {
             {editMode ? <Lock size={14} /> : <Settings size={14} />}
             <span>{editMode ? 'Lock' : 'Edit'}</span>
           </button>
+          {user?.is_admin && (
+            <button className="edit-mode-btn" onClick={() => navigate('/admin')} title="Admin panel">
+              <Shield size={14} />
+              <span>Admin</span>
+            </button>
+          )}
           <button className="edit-mode-btn" onClick={handleLogout} title="Log out">
             <LogOut size={14} />
             <span>Logout</span>

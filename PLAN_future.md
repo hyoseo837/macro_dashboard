@@ -316,11 +316,17 @@ Minimal and simple. Two sections:
 - Dashboard extracted from `App.tsx` → `DashboardPage.tsx` with logout button
 - `apiClient` now sends `withCredentials: true` for refresh cookies
 
-**Phase 5 — Frontend: Password Reset + Admin Panel**
+**Phase 5 — Frontend: Password Reset + Admin Panel** ✅
 
-- Forgot password page + reset password page
-- Admin panel: invite code management + user list
-- Admin nav link (visible only to admins)
+- `ForgotPasswordPage`: email form → success message. Calls `POST /auth/forgot-password`
+- `ResetPasswordPage`: reads `?token=` from URL, new password + confirm form. Calls `POST /auth/reset-password`
+- `AdminPage`: two sections — invite code CRUD (create with random code generator, delete) + read-only user list (email, role badge, widget count, join date). Uses `api/admin.ts` module
+- Admin button in dashboard header (visible only to admins, navigates to `/admin`)
+- Routes added: `/forgot-password`, `/reset-password`, `/admin` (wrapped in `AdminRoute` guard)
+- `AuthContext` now clears React Query cache on login/register/logout to prevent cross-user data leakage
+- Backend: default assets (AAPL, MSFT, BTC-USD) now ensured on startup via `ensure_default_assets()`, not just on registration
+- Backend: protected asset IDs — default assets are not deleted during orphan cleanup
+- Default widget layout updated: AAPL (0,0 1x1), MSFT (1,0 1x1), New York time (2,0 2x2), BTC-USD (4,0 1x1)
 
 **Phase 6 — Polish + Docs**
 

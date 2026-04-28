@@ -18,7 +18,7 @@ JWT-based. Access token is short-lived (30 min), refresh token is long-lived (7 
 - Access token: sent as `Authorization: Bearer <token>` header
 - Refresh token: `httpOnly` cookie named `refresh_token`, scoped to `/auth` path
 - Public endpoints (assets, prices, search, timezones) require no auth
-- Widget endpoints will become user-scoped in v3 Phase 3
+- Widget endpoints are user-scoped — require auth, filtered by current user
 
 ### `POST /auth/register`
 
@@ -336,4 +336,4 @@ Non-2xx responses return:
 
 ## Versioning
 
-No versioning in v2. If the contract becomes unstable, prefix with `/v1/`.
+No versioning prefix yet. If the contract becomes unstable, prefix with `/v1/`.

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import * as authApi from '../api/auth';
 import type { User } from '../api/types';
@@ -21,6 +22,7 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const tokenRef = useRef<string | null>(null);
@@ -91,22 +93,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginFn = useCallback(async (email: string, password: string) => {
     const res = await authApi.login({ email, password });
     setToken(res.access_token);
+    queryClient.clear();
     const me = await authApi.getMe();
     setUser(me);
-  }, [setToken]);
+  }, [setToken, queryClient]);
 
   const registerFn = useCallback(async (payload: authApi.RegisterPayload) => {
     const res = await authApi.register(payload);
     setToken(res.access_token);
+    queryClient.clear();
     const me = await authApi.getMe();
     setUser(me);
-  }, [setToken]);
+  }, [setToken, queryClient]);
 
   const logoutFn = useCallback(async () => {
     try { await authApi.logout(); } catch { /* ignore */ }
     setToken(null);
     setUser(null);
-  }, [setToken]);
+    queryClient.clear();
+  }, [setToken, queryClient]);
 
   return (
     <AuthContext.Provider value={{ user, loading, login: loginFn, register: registerFn, logout: logoutFn }}>

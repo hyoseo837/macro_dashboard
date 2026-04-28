@@ -1,5 +1,7 @@
 # Backend Plan — macro_dashboard
 
+> **Note**: This plan was written for v1. The project is now on v3 (multi-user). For the current architecture, see [../CLAUDE.md](../CLAUDE.md). For the full roadmap, see [../PLAN_future.md](../PLAN_future.md). For the API contract, see [../API.md](../API.md). This file is preserved as historical reference for the original backend design decisions.
+
 FastAPI service that exposes asset prices to the frontend. See `../API.md` for the HTTP contract — that file is the source of truth for shapes.
 
 ## Scope
