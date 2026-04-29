@@ -88,6 +88,20 @@ macro-restart   # restart without rebuilding
 
 Migrations live in `backend/migrations/versions/`. The `env.py` overrides the URL from `alembic.ini` with `settings.DATABASE_URL`, so the dummy URL in `alembic.ini` (`driver://user:pass@localhost/dbname`) is unused — don't change it expecting it to take effect. All model classes must inherit from `app.models.Base` for autogenerate to detect them.
 
+## Documentation conventions
+
+Docs are split into small, focused files (<150 lines each) under `docs/`. Three top-level index files (`HISTORY.md`, `PLAN_future.md`, `API.md`) point to them. Follow these rules when reading or writing docs:
+
+**Reading docs:**
+- Always read the index file first. Each entry has a "When to read" column with keywords — only load the sub-file if your task matches those keywords.
+- `CLAUDE.md` describes the current system state. `docs/plan/` explains WHY design decisions were made. `docs/history/` records WHAT happened and WHEN. `docs/api/` defines the HTTP contract. Don't load plan/history files to understand current behavior — read `CLAUDE.md` or the code.
+
+**Writing/updating docs:**
+- Keep each sub-file under 150 lines. If a file grows past that, split it.
+- When adding an entry to an index file, always include a "When to read" hint — a comma-separated list of keywords an agent would search for. Be specific: `news widgets, RSS feeds, feedparser` beats `v4 features`.
+- Current system state goes in `CLAUDE.md`, not in plan or history files. Plan files are design rationale (WHY). History files are changelogs (WHAT/WHEN).
+- When you finish a version or feature, update `CLAUDE.md` to reflect the new current state. Don't leave agents to piece it together from plan/history files.
+
 ## graphify
 
 This project has a graphify knowledge graph at graphify-out/.
