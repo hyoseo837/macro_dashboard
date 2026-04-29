@@ -303,28 +303,68 @@ Response: 204 No Content. Errors: 404.
 
 Read-only. Ordered by most recently created.
 
-### `GET /news` — [v4 — deferred]
+## News Endpoints
 
-Returns the most recent N summarized articles across all configured feeds.
+### `GET /news/catalog`
+
+Returns the full list of available RSS feeds users can choose from. No auth required.
+
+```json
+[
+  {
+    "feed_key": "bbc_world",
+    "source_name": "BBC",
+    "topic": "global",
+    "country": null
+  },
+  {
+    "feed_key": "cnn_us",
+    "source_name": "CNN",
+    "topic": "global",
+    "country": "us"
+  }
+]
+```
+
+22 predefined feeds across BBC, CNN, Reuters, NYT, Hacker News, Korea Herald, CBC. Topics: global, technology, business, science, sports, entertainment. Countries: us, kr, ca (nullable for international feeds).
+
+### `GET /news/articles?feed_id={feed_key}&limit={n}`
+
+Returns cached articles for a specific feed, ordered by `published_at` descending.
 
 Query params:
+- `feed_id` (string, required) — feed key from the catalog
 - `limit` (int, default 20, max 100)
 
 ```json
 [
   {
-    "id": "uuid-or-hash",
-    "title": "Original article headline",
-    "summary": "2-3 sentence LLM summary.",
-    "source": "Reuters",
+    "id": 1,
+    "title": "Article headline",
     "url": "https://...",
-    "published_at": "2026-04-20T13:00:00Z"
+    "source_name": "BBC",
+    "published_at": "2026-04-29T10:00:00Z",
+    "fetched_at": "2026-04-29T10:15:00Z"
   }
 ]
 ```
 
-- News is refreshed on a schedule (hourly). Frontend may poll every 5 minutes.
-- `summary` is generated once per article and stored — never generated on request.
+Returns empty array if the feed is not active (no widget references it). Articles are cached for 7 days. Feeds are refreshed hourly by the backend scheduler.
+
+**News widget config:**
+
+```json
+{
+  "feed_id": "bbc_tech",
+  "label": "BBC Technology"
+}
+```
+
+- `feed_id` must be a valid key from `GET /news/catalog`
+- `label` is auto-generated from source + topic, user-editable
+- Minimum widget size: 2x1
+- On widget creation, the feed is activated and fetched immediately in the background
+- On widget deletion, orphan feeds (no remaining widgets) are deactivated and their articles deleted
 
 ## Error shape
 

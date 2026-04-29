@@ -1,3 +1,4 @@
+import asyncio
 from zoneinfo import available_timezones
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,10 +11,22 @@ from ..db import get_db
 from ..models import Widget, Asset, WidgetType, User
 from ..schemas import WidgetSchema, WidgetCreateSchema, WidgetUpdateSchema, LayoutItemSchema
 from ..services.default_widgets import PROTECTED_ASSET_IDS
+from ..services.news import FEED_CATALOG, activate_feed, deactivate_orphan_feeds, fetch_feed
 
 VALID_TIMEZONES = available_timezones()
 
 router = APIRouter()
+
+
+async def _fetch_new_feed(feed_key: str) -> None:
+    from ..db import SessionLocal
+    from ..models import NewsFeed
+    async with SessionLocal() as db:
+        result = await db.execute(select(NewsFeed).where(NewsFeed.feed_key == feed_key))
+        feed = result.scalar_one_or_none()
+        if feed:
+            await fetch_feed(db, feed)
+            await db.commit()
 
 
 @router.get("/timezones")
@@ -53,6 +66,15 @@ async def create_widget(
         if not tz or tz not in VALID_TIMEZONES:
             raise HTTPException(status_code=422, detail="time widget requires a valid config.timezone")
 
+    elif body.type == WidgetType.news:
+        feed_id = body.config.get("feed_id")
+        if not feed_id or feed_id not in FEED_CATALOG:
+            raise HTTPException(status_code=422, detail="news widget requires a valid config.feed_id")
+        feed = await activate_feed(db, feed_id)
+        needs_fetch = feed is not None and not feed.last_fetched_at
+    else:
+        needs_fetch = False
+
     widget = Widget(
         user_id=user.id,
         type=body.type,
@@ -65,6 +87,10 @@ async def create_widget(
     db.add(widget)
     await db.commit()
     await db.refresh(widget)
+
+    if needs_fetch:
+        asyncio.create_task(_fetch_new_feed(body.config["feed_id"]))
+
     return widget
 
 
@@ -112,6 +138,7 @@ async def delete_widget(
         raise HTTPException(status_code=404, detail="Widget not found")
 
     asset_id = None
+    is_news = widget.type == WidgetType.news
     if widget.type == WidgetType.asset:
         asset_id = widget.config.get("asset_id")
 
@@ -130,6 +157,9 @@ async def delete_widget(
             asset = asset_result.scalar_one_or_none()
             if asset:
                 await db.delete(asset)
+
+    if is_news:
+        await deactivate_orphan_feeds(db)
 
     await db.commit()
 

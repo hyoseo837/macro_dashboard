@@ -350,35 +350,221 @@ Phase 1 → Phase 2 ──────────────────┐
 
 ---
 
-## v4 — News Widgets & Multi-Source Media
+## v4 — News Widgets
 
-### News Widget Type
+Two-phase approach: Phase A (headlines) ships first with RSS-only feeds. Phase B (AI) adds Gemini-powered cross-source aggregation, topic mixing, and deduplication.
 
-New widget type added to the v2 widget system.
+### Design Decisions
 
-**Sources (multi-source for non-biased coverage):**
+1. **Two phases**: Headlines-only (RSS) first, AI features second. Each phase is independently useful.
+2. **Phase A — single-feed widgets**: Each news widget maps to exactly one RSS feed (e.g., "BBC Tech", "CNN World"). No cross-source mixing. Simple 1:1 like asset widgets.
+3. **Phase B — AI-powered aggregation**: Gemini Flash unlocks cross-source topic feeds ("All Tech News"), overall feeds with dedup, and custom source+topic combos. Deferred until Phase A is stable.
+4. **Feed catalog**: Predefined in code — a Python dict mapping feed keys to source name, topic, country, and RSS URL. Not user-editable. We curate the list.
+5. **On-demand activation**: Like assets — feeds are only fetched when a widget references them. `news_feeds` table tracks active feeds. Orphan cleanup removes feeds and their articles when no widget references them.
+6. **Hourly refresh**: Scheduler fetches active feeds every hour. Articles older than 7 days are cleaned up.
+7. **Minimum widget size**: 2×1. All sizes show title + source + relative timestamp. Larger widgets show more headlines.
+8. **Article count by size**: Scales automatically — 2×1 shows ~3-4 headlines, 2×2 shows ~8-10, 2×3+ shows more.
+9. **Click to read**: Headlines link to the original article, opens in new tab.
+10. **Label**: Auto-generated from feed name (e.g., "BBC Technology"), user-editable.
+11. **Widget type**: `"news"` added to the existing `asset`/`time` enum.
+12. **No custom RSS URLs**: Users pick from the curated catalog only. Custom URLs may be added later.
 
-- BBC, CNN, NYT, Hacker News, and more
-- Users choose which media sources appear in each news widget
-- RSS ingestion + AI summarization (Anthropic Claude API)
+### Feed Catalog (Phase A)
 
-**Database:**
+Predefined feeds available at launch. More can be added to the catalog over time.
 
-- News widget config: `{ "sources": ["bbc", "nyt", "hn"], "topic": "markets", "count": 5 }`
-- New `news_articles` table for cached/ingested articles
-- Background scheduler for RSS fetching (similar to price refresh)
+**International:**
 
-**Widget sizes:**
+| Key | Source | Topic | URL |
+|-----|--------|-------|-----|
+| `bbc_world` | BBC | Global | `feeds.bbci.co.uk/news/world/rss.xml` |
+| `bbc_tech` | BBC | Technology | `feeds.bbci.co.uk/news/technology/rss.xml` |
+| `bbc_business` | BBC | Business | `feeds.bbci.co.uk/news/business/rss.xml` |
+| `bbc_science` | BBC | Science | `feeds.bbci.co.uk/news/science_and_environment/rss.xml` |
+| `bbc_sports` | BBC | Sports | `feeds.bbci.co.uk/news/sport/rss.xml` |
+| `bbc_entertainment` | BBC | Entertainment | `feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml` |
+| `cnn_world` | CNN | Global | `rss.cnn.com/rss/edition_world.rss` |
+| `cnn_tech` | CNN | Technology | `rss.cnn.com/rss/edition_technology.rss` |
+| `cnn_business` | CNN | Business | `rss.cnn.com/rss/money_news_international.rss` |
+| `cnn_entertainment` | CNN | Entertainment | `rss.cnn.com/rss/edition_entertainment.rss` |
+| `reuters_world` | Reuters | Global | `feeds.reuters.com/reuters/worldNews` |
+| `reuters_tech` | Reuters | Technology | `feeds.reuters.com/reuters/technologyNews` |
+| `reuters_business` | Reuters | Business | `feeds.reuters.com/reuters/businessNews` |
+| `nyt_world` | NYT | Global | `rss.nytimes.com/services/xml/rss/nyt/World.xml` |
+| `nyt_tech` | NYT | Technology | `rss.nytimes.com/services/xml/rss/nyt/Technology.xml` |
+| `nyt_business` | NYT | Business | `rss.nytimes.com/services/xml/rss/nyt/Business.xml` |
+| `nyt_science` | NYT | Science | `rss.nytimes.com/services/xml/rss/nyt/Science.xml` |
+| `hn` | Hacker News | Technology | `news.ycombinator.com/rss` |
 
-- `1x1`: single headline
-- `1x2` or `2x1`: headline + summary
-- `2x2`: multiple headlines with summaries, source labels
+**Country-specific:**
+
+| Key | Source | Topic | Country | URL |
+|-----|--------|-------|---------|-----|
+| `cnn_us` | CNN | Global | US | `rss.cnn.com/rss/edition_us.rss` |
+| `nyt_us` | NYT | Global | US | `rss.nytimes.com/services/xml/rss/nyt/US.xml` |
+| `korea_herald` | Korea Herald | Global | Korea | `koreaherald.com/common/rss_xml.php` |
+| `cbc_world` | CBC | Global | Canada | `cbc.ca/cmlink/rss-topstories` |
+
+> Note: RSS URLs may need updating at implementation time — some feeds change URLs. Verify each before hardcoding.
+
+### Database
+
+**New tables:**
+
+- `news_feeds`: `id`, `feed_key` (unique, from catalog), `source_name`, `topic`, `country` (nullable), `feed_url`, `last_fetched_at` (nullable), `created_at`
+- `news_articles`: `id`, `feed_id` (FK → news_feeds), `title`, `url` (unique), `source_name`, `published_at`, `fetched_at`
+
+**Modified:**
+
+- `widgets.type` enum: add `"news"`
+
+**Unchanged:**
+
+- `assets`, `price_snapshots`, `users`, `invite_codes`, `refresh_tokens`, `password_reset_tokens`
+
+### News Widget Config
+
+```json
+{
+  "feed_id": "bbc_tech",
+  "label": "BBC Technology"
+}
+```
+
+- `feed_id` references a key from the feed catalog
+- `label` auto-generated from source + topic, user-editable
+
+### Backend
+
+**Dependencies to add:**
+
+- `feedparser` — RSS parsing
+- `httpx` — already installed, used for fetching RSS feeds
+
+**New service (`app/services/news.py`):**
+
+- `FEED_CATALOG` — hardcoded dict of all available feeds
+- `fetch_feed(feed_key)` — fetches RSS feed, parses with feedparser, upserts articles into `news_articles`
+- `refresh_all_feeds()` — fetches all active feeds (those in `news_feeds` table)
+- `cleanup_old_articles()` — deletes articles older than 7 days
+- `activate_feed(feed_key)` — ensures feed exists in `news_feeds` (like creating an asset)
+- `deactivate_orphan_feeds()` — removes feeds not referenced by any widget (like orphan asset cleanup)
+
+**New endpoints (`/news`):**
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/news/catalog` | public | list all available feeds from catalog (key, source, topic, country) |
+| GET | `/news/articles?feed_id=bbc_tech&limit=10` | public | filtered articles from cache, ordered by published_at desc |
+
+**Scheduler additions:**
+
+- `refresh_all_feeds()` — runs every 60 minutes (offset from price refresh)
+- `cleanup_old_articles()` — runs daily
+
+**Widget creation hook:**
+
+- When a `type: "news"` widget is created: validate `feed_id` exists in catalog, call `activate_feed(feed_id)`, trigger an immediate fetch for that feed if it has no articles yet
+- When a news widget is deleted: run `deactivate_orphan_feeds()` (same pattern as orphan asset cleanup)
+
+### Frontend
+
+**NewsWidget component (`components/NewsWidget.tsx`):**
+
+Each headline row: title (clickable, opens in new tab) + source name + relative timestamp (e.g., "2h ago").
+
+Responsive article count by widget size:
+- **2×1**: 3-4 headlines, compact list
+- **2×2**: 8-10 headlines
+- **2×3**: 12-15 headlines
+- **3×2**: 10-12 headlines with slightly wider layout
+- **Larger**: scales proportionally
+
+**Add Widget Modal — news config:**
+
+- Step 1: type picker (Asset / Time / News)
+- Step 2 (news): searchable list of available feeds from `GET /news/catalog`, grouped by source. Shows "BBC World", "BBC Technology", "CNN Global", etc. User picks one. Label auto-fills.
+
+**Edit Widget Modal — news:**
+
+- Edit label only (feed_id is immutable — delete and recreate to change feed)
+
+### Implementation Phases
+
+**Phase 1 — Backend: Models + Feed Catalog + RSS Service** ✅
+
+- `NewsFeed`, `NewsArticle` models, Alembic migration `0899255d7d07` (add `"news"` to widget type enum)
+- `FEED_CATALOG` dict with 22 predefined feeds in `app/services/news.py`
+- `feedparser` + `httpx` RSS fetching service
+- Feed activation/deactivation + orphan cleanup
+- Article dedup on upsert (by URL via `ON CONFLICT DO UPDATE`)
+- Article cleanup (>7 days)
+- Bug fix: background fetch task moved after `db.commit()` to avoid race condition
+
+**Phase 2 — Backend: API + Scheduler Integration** ✅
+
+- `GET /news/catalog` endpoint — returns all 22 feeds from catalog
+- `GET /news/articles?feed_id=X&limit=N` endpoint — filtered articles, ordered by published_at desc
+- News widget validation in widget creation (validate feed_id against catalog)
+- Scheduler: hourly `refresh_all_feeds()`, daily `cleanup_old_articles()` at 3 AM, both also run on startup
+- Immediate background fetch on first widget creation for a feed
+
+**Phase 3 — Frontend: News Widget Component** ✅
+
+- `NewsWidget` with responsive headline count (4 at 2×1, 10 at 2×2, 15 at 2×3+)
+- Headline rows: title (link, opens new tab) + source badge + relative timestamp ("2h", "3d")
+- `useNews` hook with `useNewsCatalog` (stale: infinity) and `useNewsArticles` (stale: 5 min)
+- `WidgetDispatcher` routing to `NewsWidget` for type `"news"`
+- CSS: `.news-widget-*` styles with scrollable list, hover states, thin scrollbar
+
+**Phase 4 — Frontend: Add/Edit News Widget** ✅
+
+- News option in type picker (Newspaper icon from lucide-react)
+- Feed picker: searchable list from `/news/catalog` with feed key display. Label auto-fills from source + topic
+- Default widget size 2×1, placed at first free position
+- Edit modal: label editing (feed_id immutable)
+- Caddyfile: added `/news/*` to reverse proxy routes
+
+**Phase 5 — Polish + Docs**
+
+- Loading and empty states for news widgets ✅ (done in Phase 3)
+- Error handling (feed fetch failures) ✅ (done in Phase 1 — logged, doesn't break batch)
+- Version bump to 4.0.0
+- Update API.md, CLAUDE.md, README.md, HISTORY.md
+
+**Dependency graph:**
+
+```
+Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5
+                     (3 & 4 can partially overlap)
+```
+
+---
+
+## v4B — AI-Powered News (Gemini)
+
+Builds on v4 Phase A. Adds Gemini Flash for cross-source aggregation and intelligent features.
+
+### Features
+
+- **Cross-source topic feeds**: "All Tech News" — aggregates tech articles from BBC, CNN, NYT, HN, deduplicates with AI
+- **Overall feed**: All sources, all topics — Gemini clusters articles about the same event, picks the best headline or generates a combined summary
+- **AI summaries**: 2-3 sentence summary per article (or per event cluster)
+- **Widget config expansion**: `source` becomes optional (null = all sources), `topic` filter without source
+
+### Design
+
+- **Gemini Flash** via Google AI Studio (free tier: 15 RPM, 1M tokens/day)
+- Summarization runs on ingest (not on request) — stored in `news_articles.summary`
+- Event clustering: group articles by similarity, Gemini confirms/merges clusters
+- New widget config: `{ "source": "bbc"|null, "topic": "technology"|null, "label": "..." }`
 
 ### Dependencies
 
-- `feedparser` for RSS ingestion
-- `anthropic` SDK for AI summarization
-- Multi-user (v3) should land first so news preferences are per-user
+- `google-generativeai` SDK
+- `GEMINI_API_KEY` env var
+
+> Scope and phases to be defined after v4A is stable.
 
 ---
 

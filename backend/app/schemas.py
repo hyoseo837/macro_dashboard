@@ -131,3 +131,23 @@ class UserAdminSchema(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── News schemas ──
+
+class NewsFeedCatalogSchema(BaseModel):
+    feed_key: str
+    source_name: str
+    topic: str
+    country: Optional[str] = None
+
+class NewsArticleSchema(BaseModel):
+    id: int
+    title: str
+    url: str
+    source_name: str
+    published_at: Optional[datetime] = None
+    fetched_at: datetime
+
+    class Config:
+        from_attributes = True

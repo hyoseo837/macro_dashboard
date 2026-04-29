@@ -4,26 +4,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-v3 (multi-user) is complete and deployed to **https://macro.hyoseo.dev** (DigitalOcean droplet). Local dev: backend on `:8000`, frontend on `:5173`, Postgres in Docker on **host port 5433**, `price_snapshots` refreshed every 15 min. [PLAN_future.md](PLAN_future.md) and [API.md](API.md) are design docs — trust the shipped code when they disagree.
+v4 (news widgets) is in progress. Deployed to **https://macro.hyoseo.dev** (DigitalOcean droplet). Local dev: backend on `:8000`, frontend on `:5173`, Postgres in Docker on **host port 5433**, `price_snapshots` refreshed every 15 min, `news_feeds` refreshed every 60 min. [PLAN_future.md](PLAN_future.md) and [API.md](API.md) are design docs — trust the shipped code when they disagree.
 
 ## Scope discipline
 
-Anything related to news (RSS, Anthropic summarization, `/news` endpoint, `news_articles` table) is v4 scope — do not add `feedparser`, `anthropic`, or news-related files.
+v4A (headlines-only news) is in progress. AI-powered features (Gemini summarization, cross-source aggregation) are v4B scope — do not add `google-generativeai` or AI-related code.
 
 ## Architecture
 
 Two independent halves:
 
-- [backend/](backend/) — FastAPI + SQLAlchemy 2.x (async, `psycopg` v3) + PostgreSQL 16 (Docker) + APScheduler + yfinance. Poetry for packaging. The scheduler is wired inline in [backend/app/main.py](backend/app/main.py); it runs `refresh_all_prices` once on startup, then every 15 min. Tables: `assets` (global catalog), `price_snapshots` (cache), `widgets` (user layout), `users`, `invite_codes`, `refresh_tokens`, `password_reset_tokens`. Auth via JWT (`python-jose`) + `bcrypt`. SMTP for password reset via `aiosmtplib`.
+- [backend/](backend/) — FastAPI + SQLAlchemy 2.x (async, `psycopg` v3) + PostgreSQL 16 (Docker) + APScheduler + yfinance + feedparser. Poetry for packaging. The scheduler is wired inline in [backend/app/main.py](backend/app/main.py); it runs `refresh_all_prices` once on startup then every 15 min, `refresh_all_feeds` on startup then every 60 min, and `cleanup_old_articles` daily at 3 AM. Tables: `assets` (global catalog), `price_snapshots` (cache), `widgets` (user layout), `users`, `invite_codes`, `refresh_tokens`, `password_reset_tokens`, `news_feeds` (active RSS feeds), `news_articles` (cached headlines). Auth via JWT (`python-jose`) + `bcrypt`. SMTP for password reset via `aiosmtplib`.
 - [frontend/](frontend/) — Vite + React 19 + TypeScript + Tailwind v4 + `@tanstack/react-query` + `recharts` + `react-grid-layout` + `react-router-dom` + `axios`. Routes: `/` (landing), `/login`, `/register`, `/forgot-password`, `/reset-password`, `/dashboard` (protected), `/admin` (admin-only). `usePrices` polls `/prices` every 60 s. Dark mode only.
 
 The contract between halves is [API.md](API.md). If a shape changes, update `API.md`, then both sides. The frontend must never call yfinance/RSS directly — everything goes through the backend.
 
 ## Key conventions
 
-- **Widget system**: The dashboard is a grid of widgets (`react-grid-layout`, 6 cols). Two widget types: `asset` (price card) and `time` (live clock). Each widget has position/size (`layout_x/y/w/h`) and type-specific `config` (jsonb).
+- **Widget system**: The dashboard is a grid of widgets (`react-grid-layout`, 6 cols). Three widget types: `asset` (price card), `time` (live clock), and `news` (RSS headlines). Each widget has position/size (`layout_x/y/w/h`) and type-specific `config` (jsonb).
 - **Assets are a shared catalog**: `assets` table stores canonical Yahoo Finance metadata. Widgets reference assets via `config.asset_id`. Display names are widget-owned (`config.label`), not asset-owned.
-- **Orphan cleanup**: Deleting the last widget referencing an asset also deletes the asset and its snapshots — except for protected default assets (AAPL, MSFT, BTC-USD) which are preserved so new users get price data immediately.
+- **Orphan cleanup**: Deleting the last widget referencing an asset also deletes the asset and its snapshots — except for protected default assets (AAPL, MSFT, BTC-USD) which are preserved so new users get price data immediately. News feeds follow the same pattern — orphan feeds and their articles are deleted when no widget references them.
+- **News feeds**: Predefined RSS feed catalog in `app/services/news.py` (22 feeds: BBC, CNN, Reuters, NYT, HN, Korea Herald, CBC). Feeds are activated on-demand when a news widget is created. Each news widget maps to exactly one feed. Articles cached for 7 days, cleaned up daily. Minimum widget size 2x1.
 - `price_snapshots` is a **cache** (one row per asset, overwritten via `ON CONFLICT DO UPDATE`) — not a history table.
 - **Auth**: JWT access tokens (30 min) in memory, refresh tokens (7 days) as `httpOnly` cookies. First admin created via `poetry run python -m app.cli create-admin`. Password reset via `poetry run python -m app.cli reset-password`. Registration requires an invite code created by an admin.
 - **Default widgets**: On registration, new users get 4 widgets (AAPL, MSFT, BTC-USD asset widgets + New York time widget). Default assets are also ensured on backend startup.

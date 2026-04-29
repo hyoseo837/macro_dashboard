@@ -8,6 +8,7 @@
 		path /widgets/*
 		path /timezones
 		path /timezones/*
+		path /news/*
 		path /health
 	}
 

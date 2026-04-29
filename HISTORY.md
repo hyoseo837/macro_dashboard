@@ -333,4 +333,52 @@ Added shell aliases on the droplet (`/root/.bashrc`):
 - **Production**: Live at **https://macro.hyoseo.dev**
 - **Local dev**: Backend on `:8000`, frontend on `:5173`
 - **Deploy workflow**: develop locally → commit & push → SSH → `macro-deploy`
-- **Next**: v4 (news widgets).
+
+---
+
+## 2026-04-29: v4 — News Widgets (Headlines Only)
+
+### Planning
+
+- Full v4 plan written in `PLAN_future.md`. Two-phase approach: Phase A (RSS headlines, no AI) ships first, Phase B (Gemini-powered cross-source aggregation) deferred until Phase A is stable.
+- Key decisions: single-feed per widget (like asset widgets), predefined feed catalog (not user-editable), on-demand feed activation, 7-day article retention, minimum 2×1 widget size, hourly refresh.
+
+### Phase 1: Backend — Models + Feed Catalog + RSS Service
+
+- **Models**: Added `NewsFeed` (feed_key, source_name, topic, country, feed_url, last_fetched_at) and `NewsArticle` (feed_id FK, title, url, source_name, published_at, fetched_at) to `models.py`. Added `news` to `WidgetType` enum.
+- **Migration**: `0899255d7d07` — creates `news_feeds` and `news_articles` tables, adds `'news'` to `widget_type` PostgreSQL enum.
+- **Feed catalog** (`app/services/news.py`): 22 predefined feeds — BBC (world, tech, business, science, sports, entertainment), CNN (world, tech, business, entertainment, US), Reuters (world, tech, business), NYT (world, tech, business, science, US), Hacker News, Korea Herald, CBC.
+- **RSS service**: `feedparser` + `httpx` for async fetching. `activate_feed` / `deactivate_orphan_feeds` (same pattern as asset orphan cleanup). `fetch_feed` upserts articles by URL. `refresh_all_feeds` / `cleanup_old_articles` for scheduler.
+- **Widget router**: Added `WidgetType.news` validation on create — validates `feed_id` against catalog, activates feed, triggers background fetch for new feeds. Orphan feed cleanup on widget delete.
+- **Dependency added**: `feedparser ^6.0.12`.
+- **Bug fix**: Background feed fetch was racing with `db.commit()` — the `asyncio.create_task` fired before the feed was committed, so the background task couldn't find it. Fixed by moving the task creation after `db.commit()`.
+
+### Phase 2: Backend — API + Scheduler Integration
+
+- **News router** (`app/routers/news.py`): Two endpoints:
+  - `GET /news/catalog` — returns all 22 feeds from the catalog (public, no auth)
+  - `GET /news/articles?feed_id=X&limit=N` — returns cached articles for a feed, ordered by `published_at` desc
+- **Scheduler** (`app/main.py`): Added `refresh_all_feeds` (every 60 min) and `cleanup_old_articles` (daily at 3 AM) alongside existing price refresh. Both also run on startup.
+
+### Phase 3: Frontend — News Widget Component
+
+- **Types**: Added `NewsWidgetConfig`, `NewsFeedCatalogEntry`, `NewsArticle` to `api/types.ts`. `WidgetType` now includes `'news'`.
+- **API module** (`api/news.ts`): `getNewsCatalog`, `getNewsArticles`.
+- **Hook** (`hooks/useNews.ts`): `useNewsCatalog` (stale: infinity), `useNewsArticles` (stale: 5 min).
+- **NewsWidget** (`components/NewsWidget.tsx`): Headline list with title (clickable, opens in new tab) + source badge + relative timestamp (e.g., "2h", "3d"). Article count scales with widget size (2×1: 4, 2×2: 10, 2×3: 15). Loading and empty states.
+- **WidgetDispatcher**: Routes `type: 'news'` to `NewsWidget`.
+- **CSS**: `.news-widget-*` styles — header with label, scrollable list, hover states, source/time metadata, thin scrollbar.
+
+### Phase 4: Frontend — Add/Edit News Widget
+
+- **AddWidgetModal**: Added News option to type picker (Newspaper icon). News config step: searchable feed list from `/news/catalog`, label auto-fills from source + topic, user-editable. Default size 2×1.
+- **EditWidgetModal**: News widgets support label editing (feed_id immutable — delete and recreate to change feed).
+- **Caddyfile**: Added `/news/*` to reverse proxy routes.
+
+### Current State (v4 Phase A in progress)
+
+- **Version**: 3.0.0 (version bump to 4.0.0 pending polish phase)
+- **Backend**: News catalog, article caching, scheduler integration all working. 22 feeds available.
+- **Frontend**: News widget with add/edit/delete fully functional. Responsive article count.
+- **Database**: 9 tables — added `news_feeds`, `news_articles`.
+- **Next**: Phase 5 (polish, loading states, version bump, docs update), then deploy to production. v4B (Gemini AI) deferred.

@@ -60,7 +60,7 @@ function EditWidgetForm({ widget, onClose }: { widget: Widget; onClose: () => vo
     if (!label.trim()) { setError('Label is required'); return; }
     setError('');
 
-    if (widget.type === 'asset') {
+    if (widget.type === 'asset' || widget.type === 'news') {
       mutation.mutate({ ...widget.config, label: label.trim() });
     } else {
       if (!selectedTz) { setError('Select a timezone'); return; }
@@ -78,7 +78,7 @@ function EditWidgetForm({ widget, onClose }: { widget: Widget; onClose: () => vo
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <span className="modal-title">
-            Edit {widget.type === 'asset' ? 'Asset' : 'Time'} Widget
+            Edit {widget.type === 'asset' ? 'Asset' : widget.type === 'news' ? 'News' : 'Time'} Widget
           </span>
           <button className="modal-close" onClick={onClose}><X size={16} /></button>
         </div>

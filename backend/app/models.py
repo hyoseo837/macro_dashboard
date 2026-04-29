@@ -67,6 +67,7 @@ class PasswordResetToken(Base):
 class WidgetType(str, enum.Enum):
     asset = "asset"
     time = "time"
+    news = "news"
 
 class Asset(Base):
     __tablename__ = "assets"
@@ -108,3 +109,32 @@ class Widget(Base):
     layout_h: Mapped[int] = mapped_column(Integer, default=1)
 
     owner: Mapped["User"] = relationship(back_populates="widgets")
+
+
+class NewsFeed(Base):
+    __tablename__ = "news_feeds"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    feed_key: Mapped[str] = mapped_column(String, unique=True, index=True)
+    source_name: Mapped[str] = mapped_column(String)
+    topic: Mapped[str] = mapped_column(String)
+    country: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    feed_url: Mapped[str] = mapped_column(String)
+    last_fetched_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    articles: Mapped[List["NewsArticle"]] = relationship(back_populates="feed", cascade="all, delete-orphan")
+
+
+class NewsArticle(Base):
+    __tablename__ = "news_articles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    feed_id: Mapped[int] = mapped_column(ForeignKey("news_feeds.id"))
+    title: Mapped[str] = mapped_column(String)
+    url: Mapped[str] = mapped_column(String, unique=True, index=True)
+    source_name: Mapped[str] = mapped_column(String)
+    published_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    feed: Mapped["NewsFeed"] = relationship(back_populates="articles")

@@ -1,5 +1,6 @@
 import type { Widget } from '../api/types';
 import AssetWidget from './AssetWidget';
+import NewsWidget from './NewsWidget';
 import TimeWidget from './TimeWidget';
 
 interface WidgetDispatcherProps {
@@ -14,6 +15,8 @@ export default function WidgetDispatcher({ widget, currentW, currentH }: WidgetD
       return <AssetWidget widget={widget} currentW={currentW} currentH={currentH} />;
     case 'time':
       return <TimeWidget widget={widget} currentW={currentW} currentH={currentH} />;
+    case 'news':
+      return <NewsWidget widget={widget} currentW={currentW} currentH={currentH} />;
     default:
       return (
         <div className="widget-placeholder">

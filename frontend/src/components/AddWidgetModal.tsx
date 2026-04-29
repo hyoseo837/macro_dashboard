@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { X, Search, TrendingUp, Clock, ArrowLeft } from 'lucide-react';
+import { X, Search, TrendingUp, Clock, Newspaper, ArrowLeft } from 'lucide-react';
 import { createAsset, searchSymbols, lookupCurrency, type CreateAssetPayload, type SearchResult } from '../api/assets';
 import { createWidget, type CreateWidgetPayload } from '../api/widgets';
+import { getNewsCatalog } from '../api/news';
 import { apiClient } from '../api/client';
-import type { Widget, WidgetType } from '../api/types';
+import type { Widget, WidgetType, NewsFeedCatalogEntry } from '../api/types';
 
 interface AddWidgetModalProps {
   open: boolean;
@@ -12,7 +13,13 @@ interface AddWidgetModalProps {
   widgets: Widget[];
 }
 
-type Step = 'pick-type' | 'config-asset' | 'config-time';
+type Step = 'pick-type' | 'config-asset' | 'config-time' | 'config-news';
+
+function feedDisplayName(entry: NewsFeedCatalogEntry): string {
+  const topic = entry.topic.charAt(0).toUpperCase() + entry.topic.slice(1);
+  const country = entry.country ? ` (${entry.country.toUpperCase()})` : '';
+  return `${entry.source_name} ${topic}${country}`;
+}
 
 function tzDisplayName(tz: string): string {
   return tz.split('/').pop()?.replace(/_/g, ' ') || tz;
@@ -77,6 +84,24 @@ const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ open, onClose, widgets 
   const [tzLabel, setTzLabel] = useState('');
   const [clockMode, setClockMode] = useState<'analog' | 'digital'>('analog');
 
+  // ── News state ──
+  const [feedQuery, setFeedQuery] = useState('');
+  const [selectedFeed, setSelectedFeed] = useState<NewsFeedCatalogEntry | null>(null);
+  const [feedLabel, setFeedLabel] = useState('');
+
+  const { data: feedCatalog = [] } = useQuery({
+    queryKey: ['newsCatalog'],
+    queryFn: getNewsCatalog,
+    staleTime: Infinity,
+    enabled: open,
+  });
+
+  const filteredFeeds = feedQuery.trim()
+    ? feedCatalog.filter((f) =>
+        feedDisplayName(f).toLowerCase().includes(feedQuery.toLowerCase())
+      )
+    : feedCatalog;
+
   const [error, setError] = useState('');
 
   const widgetMutation = useMutation({
@@ -115,6 +140,9 @@ const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ open, onClose, widgets 
       setSelectedTz('');
       setTzLabel('');
       setClockMode('analog');
+      setFeedQuery('');
+      setSelectedFeed(null);
+      setFeedLabel('');
       setError('');
     }
   }, [open]);
@@ -232,6 +260,21 @@ const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ open, onClose, widgets 
     });
   };
 
+  const handleNewsSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFeed) { setError('Select a news feed'); return; }
+    setError('');
+    const pos = findFreePosition(widgets, 2, 1);
+    widgetMutation.mutate({
+      type: 'news' as WidgetType,
+      config: { feed_id: selectedFeed.feed_key, label: feedLabel.trim() || feedDisplayName(selectedFeed) },
+      layout_x: pos.x,
+      layout_y: pos.y,
+      layout_w: 2,
+      layout_h: 1,
+    });
+  };
+
   if (!open) return null;
 
   const isPending = widgetMutation.isPending || assetMutation.isPending;
@@ -258,6 +301,13 @@ const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ open, onClose, widgets 
                 <div className="type-option-text">
                   <div className="type-option-name">Time</div>
                   <div className="type-option-desc">Live clock for a timezone</div>
+                </div>
+              </button>
+              <button className="type-option" onClick={() => setStep('config-news')}>
+                <Newspaper size={20} />
+                <div className="type-option-text">
+                  <div className="type-option-name">News</div>
+                  <div className="type-option-desc">Headlines from a news source</div>
                 </div>
               </button>
             </div>
@@ -336,6 +386,73 @@ const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ open, onClose, widgets 
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
               <button type="submit" className="btn btn-primary" disabled={isPending || !selected || loadingCurrency}>
+                {isPending ? 'Adding...' : 'Add'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'config-news') {
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-header">
+            <button className="modal-back" onClick={() => setStep('pick-type')}><ArrowLeft size={16} /></button>
+            <span className="modal-title">Add News Widget</span>
+            <button className="modal-close" onClick={onClose}><X size={16} /></button>
+          </div>
+          <form onSubmit={handleNewsSubmit}>
+            <div className="modal-body">
+              <label className="form-label">
+                News Feed
+                <div className="search-input-wrap">
+                  <Search size={14} className="search-icon" />
+                  <input
+                    className="form-input search-input"
+                    type="text"
+                    value={selectedFeed ? feedDisplayName(selectedFeed) : feedQuery}
+                    onChange={(e) => { setFeedQuery(e.target.value); setSelectedFeed(null); setFeedLabel(''); }}
+                    placeholder="Search news feeds..."
+                    autoFocus
+                  />
+                </div>
+                <div className="tz-list">
+                  {filteredFeeds.map((f) => (
+                    <button
+                      key={f.feed_key}
+                      type="button"
+                      className={`tz-item ${selectedFeed?.feed_key === f.feed_key ? 'selected' : ''}`}
+                      onClick={() => { setSelectedFeed(f); setFeedLabel(feedDisplayName(f)); }}
+                    >
+                      <span className="tz-item-name">{feedDisplayName(f)}</span>
+                      <span className="tz-item-id">{f.feed_key}</span>
+                    </button>
+                  ))}
+                  {filteredFeeds.length === 0 && (
+                    <div className="tz-empty">No matching feeds</div>
+                  )}
+                </div>
+              </label>
+
+              <label className="form-label">
+                Label
+                <input
+                  className="form-input"
+                  type="text"
+                  value={feedLabel}
+                  onChange={(e) => setFeedLabel(e.target.value)}
+                  placeholder={selectedFeed ? feedDisplayName(selectedFeed) : 'Select a feed first'}
+                />
+              </label>
+
+              {error && <div className="form-error">{error}</div>}
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={isPending || !selectedFeed}>
                 {isPending ? 'Adding...' : 'Add'}
               </button>
             </div>

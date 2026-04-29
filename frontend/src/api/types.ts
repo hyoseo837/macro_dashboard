@@ -11,7 +11,7 @@ export interface SparklinePoint {
   price: number;
 }
 
-export type WidgetType = 'asset' | 'time';
+export type WidgetType = 'asset' | 'time' | 'news';
 
 export interface Widget {
   id: number;
@@ -31,6 +31,27 @@ export interface AssetWidgetConfig {
 export interface TimeWidgetConfig {
   timezone: string;
   label: string;
+}
+
+export interface NewsWidgetConfig {
+  feed_id: string;
+  label: string;
+}
+
+export interface NewsFeedCatalogEntry {
+  feed_key: string;
+  source_name: string;
+  topic: string;
+  country: string | null;
+}
+
+export interface NewsArticle {
+  id: number;
+  title: string;
+  url: string;
+  source_name: string;
+  published_at: string | null;
+  fetched_at: string;
 }
 
 export interface LayoutItem {
