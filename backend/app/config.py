@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     SMTP_FROM: str = ""
     FRONTEND_URL: str = "http://localhost:5173"
 
+    GEMINI_API_KEY: str = ""
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()

@@ -1,6 +1,6 @@
 import React from 'react';
-import type { Widget } from '../api/types';
-import { useNewsArticles } from '../hooks/useNews';
+import type { Widget, ClusteredArticles } from '../api/types';
+import { useNewsArticles, useTopicArticles, useClusteredArticles } from '../hooks/useNews';
 
 interface NewsWidgetProps {
   widget: Widget;
@@ -31,11 +31,88 @@ function formatRelativeTime(dateStr: string | null): string {
   return `${diffDay}d`;
 }
 
-const NewsWidget: React.FC<NewsWidgetProps> = ({ widget, currentW, currentH }) => {
-  const feedId = (widget.config.feed_id as string) || '';
-  const label = (widget.config.label as string) || feedId;
-  const count = getArticleCount(currentW, currentH);
+function BriefingItem({ group }: { group: ClusteredArticles }) {
+  const sources = [...new Set(group.articles.map((a) => a.source_name))];
+  const latestTime = group.articles[0]?.published_at ?? null;
+  const displayText = group.summary || group.cluster_label || group.articles[0]?.title || '';
+
+  return (
+    <div className="news-briefing-item">
+      <div className="news-briefing-text">{displayText}</div>
+      <div className="news-briefing-meta">
+        <div className="news-briefing-sources">
+          {sources.map((source) => {
+            const article = group.articles.find((a) => a.source_name === source);
+            return (
+              <a
+                key={source}
+                href={article?.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="news-briefing-badge"
+              >
+                {source}
+              </a>
+            );
+          })}
+        </div>
+        <span className="news-widget-time">{formatRelativeTime(latestTime)}</span>
+      </div>
+    </div>
+  );
+}
+
+function SingleNewsView({ feedId, count }: { feedId: string; count: number }) {
   const { data: articles, isLoading } = useNewsArticles(feedId, count);
+
+  if (isLoading) return <div className="news-widget-loading">Loading...</div>;
+  if (!articles || articles.length === 0) return <div className="news-widget-empty">No articles yet</div>;
+
+  return (
+    <>
+      {articles.map((article) => (
+        <a
+          key={article.id}
+          href={article.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="news-widget-item"
+        >
+          <span className="news-widget-title">{article.title}</span>
+          <div className="news-widget-meta">
+            <span className="news-widget-source">{article.source_name}</span>
+            <span className="news-widget-time">
+              {formatRelativeTime(article.published_at)}
+            </span>
+          </div>
+        </a>
+      ))}
+    </>
+  );
+}
+
+function BriefingView({ clusters, isLoading }: { clusters: ClusteredArticles[] | undefined; isLoading: boolean }) {
+  if (isLoading) return <div className="news-widget-loading">Loading...</div>;
+  if (!clusters || clusters.length === 0) return <div className="news-widget-empty">No articles yet</div>;
+
+  return (
+    <>
+      {clusters.map((group, idx) => (
+        <BriefingItem key={group.cluster_id ?? `single-${idx}`} group={group} />
+      ))}
+    </>
+  );
+}
+
+const NewsWidget: React.FC<NewsWidgetProps> = ({ widget, currentW, currentH }) => {
+  const mode = (widget.config.mode as string) || 'single';
+  const feedId = (widget.config.feed_id as string) || '';
+  const topic = (widget.config.topic as string) || '';
+  const label = (widget.config.label as string) || feedId || topic;
+  const count = getArticleCount(currentW, currentH);
+
+  const topicQuery = useTopicArticles(mode === 'topic' ? topic : '', count);
+  const overallQuery = useClusteredArticles(count, mode === 'overall');
 
   return (
     <div className="news-widget">
@@ -43,27 +120,13 @@ const NewsWidget: React.FC<NewsWidgetProps> = ({ widget, currentW, currentH }) =
         <span className="news-widget-label">{label}</span>
       </div>
       <div className="news-widget-list">
-        {isLoading && <div className="news-widget-loading">Loading...</div>}
-        {!isLoading && (!articles || articles.length === 0) && (
-          <div className="news-widget-empty">No articles yet</div>
+        {mode === 'topic' ? (
+          <BriefingView clusters={topicQuery.data} isLoading={topicQuery.isLoading} />
+        ) : mode === 'overall' ? (
+          <BriefingView clusters={overallQuery.data} isLoading={overallQuery.isLoading} />
+        ) : (
+          <SingleNewsView feedId={feedId} count={count} />
         )}
-        {articles?.map((article) => (
-          <a
-            key={article.id}
-            href={article.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="news-widget-item"
-          >
-            <span className="news-widget-title">{article.title}</span>
-            <div className="news-widget-meta">
-              <span className="news-widget-source">{article.source_name}</span>
-              <span className="news-widget-time">
-                {formatRelativeTime(article.published_at)}
-              </span>
-            </div>
-          </a>
-        ))}
       </div>
     </div>
   );

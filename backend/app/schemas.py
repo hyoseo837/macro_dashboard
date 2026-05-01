@@ -151,3 +151,9 @@ class NewsArticleSchema(BaseModel):
 
     class Config:
         from_attributes = True
+
+class ClusteredArticleSchema(BaseModel):
+    cluster_id: Optional[int] = None
+    cluster_label: Optional[str] = None
+    summary: Optional[str] = None
+    articles: List[NewsArticleSchema]

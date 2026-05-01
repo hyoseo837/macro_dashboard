@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from datetime import datetime, timedelta, timezone
 import asyncio
 import logging
 
@@ -8,6 +9,7 @@ from .config import settings
 from .db import SessionLocal
 from .routers import admin, assets, auth, news, prices, widgets
 from .services.default_widgets import ensure_default_assets
+from .services.ai import run_ai_pipeline
 from .services.news import cleanup_old_articles, refresh_all_feeds
 from .services.prices import refresh_all_prices
 
@@ -50,6 +52,10 @@ async def startup_event():
         async with SessionLocal() as db:
             await cleanup_old_articles(db)
 
+    async def scheduled_ai_pipeline():
+        async with SessionLocal() as db:
+            await run_ai_pipeline(db)
+
     # Ensure default assets exist so they get price data
     async with SessionLocal() as db:
         await ensure_default_assets(db)
@@ -63,6 +69,10 @@ async def startup_event():
     scheduler.add_job(scheduled_price_refresh, 'interval', minutes=15)
     scheduler.add_job(scheduled_news_refresh, 'interval', minutes=60)
     scheduler.add_job(scheduled_news_cleanup, 'cron', hour=3)
+    scheduler.add_job(
+        scheduled_ai_pipeline, 'interval', minutes=65,
+        next_run_time=datetime.now(timezone.utc) + timedelta(minutes=5),
+    )
     scheduler.start()
     logger.info("Scheduler started")
 

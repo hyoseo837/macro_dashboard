@@ -85,9 +85,11 @@ const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ open, onClose, widgets 
   const [clockMode, setClockMode] = useState<'analog' | 'digital'>('analog');
 
   // ── News state ──
+  const [newsMode, setNewsMode] = useState<'single' | 'topic' | 'overall'>('single');
   const [feedQuery, setFeedQuery] = useState('');
   const [selectedFeed, setSelectedFeed] = useState<NewsFeedCatalogEntry | null>(null);
   const [feedLabel, setFeedLabel] = useState('');
+  const [selectedTopic, setSelectedTopic] = useState('');
 
   const { data: feedCatalog = [] } = useQuery({
     queryKey: ['newsCatalog'],
@@ -140,9 +142,11 @@ const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ open, onClose, widgets 
       setSelectedTz('');
       setTzLabel('');
       setClockMode('analog');
+      setNewsMode('single');
       setFeedQuery('');
       setSelectedFeed(null);
       setFeedLabel('');
+      setSelectedTopic('');
       setError('');
     }
   }, [open]);
@@ -260,19 +264,46 @@ const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ open, onClose, widgets 
     });
   };
 
+  const availableTopics = [...new Set(feedCatalog.map((f) => f.topic))].sort();
+
+  const topicDisplayName = (topic: string) =>
+    topic.charAt(0).toUpperCase() + topic.slice(1);
+
   const handleNewsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedFeed) { setError('Select a news feed'); return; }
     setError('');
     const pos = findFreePosition(widgets, 2, 1);
-    widgetMutation.mutate({
-      type: 'news' as WidgetType,
-      config: { feed_id: selectedFeed.feed_key, label: feedLabel.trim() || feedDisplayName(selectedFeed) },
-      layout_x: pos.x,
-      layout_y: pos.y,
-      layout_w: 2,
-      layout_h: 1,
-    });
+
+    if (newsMode === 'single') {
+      if (!selectedFeed) { setError('Select a news feed'); return; }
+      widgetMutation.mutate({
+        type: 'news' as WidgetType,
+        config: { feed_id: selectedFeed.feed_key, label: feedLabel.trim() || feedDisplayName(selectedFeed) },
+        layout_x: pos.x,
+        layout_y: pos.y,
+        layout_w: 2,
+        layout_h: 1,
+      });
+    } else if (newsMode === 'topic') {
+      if (!selectedTopic) { setError('Select a topic'); return; }
+      widgetMutation.mutate({
+        type: 'news' as WidgetType,
+        config: { mode: 'topic', topic: selectedTopic, label: feedLabel.trim() || `All ${topicDisplayName(selectedTopic)} News` },
+        layout_x: pos.x,
+        layout_y: pos.y,
+        layout_w: 2,
+        layout_h: 2,
+      });
+    } else {
+      widgetMutation.mutate({
+        type: 'news' as WidgetType,
+        config: { mode: 'overall', label: feedLabel.trim() || 'All News' },
+        layout_x: pos.x,
+        layout_y: pos.y,
+        layout_w: 2,
+        layout_h: 2,
+      });
+    }
   };
 
   if (!open) return null;
@@ -406,36 +437,65 @@ const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ open, onClose, widgets 
           </div>
           <form onSubmit={handleNewsSubmit}>
             <div className="modal-body">
-              <label className="form-label">
-                News Feed
-                <div className="search-input-wrap">
-                  <Search size={14} className="search-icon" />
-                  <input
-                    className="form-input search-input"
-                    type="text"
-                    value={selectedFeed ? feedDisplayName(selectedFeed) : feedQuery}
-                    onChange={(e) => { setFeedQuery(e.target.value); setSelectedFeed(null); setFeedLabel(''); }}
-                    placeholder="Search news feeds..."
-                    autoFocus
-                  />
+              <div className="form-label">
+                Feed Mode
+                <div className="mode-toggle">
+                  <button type="button" className={`mode-toggle-btn ${newsMode === 'single' ? 'active' : ''}`} onClick={() => { setNewsMode('single'); setFeedLabel(''); }}>Single</button>
+                  <button type="button" className={`mode-toggle-btn ${newsMode === 'topic' ? 'active' : ''}`} onClick={() => { setNewsMode('topic'); setFeedLabel(''); }}>Topic</button>
+                  <button type="button" className={`mode-toggle-btn ${newsMode === 'overall' ? 'active' : ''}`} onClick={() => { setNewsMode('overall'); setFeedLabel('All News'); }}>Overall</button>
                 </div>
-                <div className="tz-list">
-                  {filteredFeeds.map((f) => (
-                    <button
-                      key={f.feed_key}
-                      type="button"
-                      className={`tz-item ${selectedFeed?.feed_key === f.feed_key ? 'selected' : ''}`}
-                      onClick={() => { setSelectedFeed(f); setFeedLabel(feedDisplayName(f)); }}
-                    >
-                      <span className="tz-item-name">{feedDisplayName(f)}</span>
-                      <span className="tz-item-id">{f.feed_key}</span>
-                    </button>
-                  ))}
-                  {filteredFeeds.length === 0 && (
-                    <div className="tz-empty">No matching feeds</div>
-                  )}
-                </div>
-              </label>
+              </div>
+
+              {newsMode === 'single' && (
+                <label className="form-label">
+                  News Feed
+                  <div className="search-input-wrap">
+                    <Search size={14} className="search-icon" />
+                    <input
+                      className="form-input search-input"
+                      type="text"
+                      value={selectedFeed ? feedDisplayName(selectedFeed) : feedQuery}
+                      onChange={(e) => { setFeedQuery(e.target.value); setSelectedFeed(null); setFeedLabel(''); }}
+                      placeholder="Search news feeds..."
+                      autoFocus
+                    />
+                  </div>
+                  <div className="tz-list">
+                    {filteredFeeds.map((f) => (
+                      <button
+                        key={f.feed_key}
+                        type="button"
+                        className={`tz-item ${selectedFeed?.feed_key === f.feed_key ? 'selected' : ''}`}
+                        onClick={() => { setSelectedFeed(f); setFeedLabel(feedDisplayName(f)); }}
+                      >
+                        <span className="tz-item-name">{feedDisplayName(f)}</span>
+                        <span className="tz-item-id">{f.feed_key}</span>
+                      </button>
+                    ))}
+                    {filteredFeeds.length === 0 && (
+                      <div className="tz-empty">No matching feeds</div>
+                    )}
+                  </div>
+                </label>
+              )}
+
+              {newsMode === 'topic' && (
+                <label className="form-label">
+                  Topic
+                  <div className="tz-list">
+                    {availableTopics.map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        className={`tz-item ${selectedTopic === t ? 'selected' : ''}`}
+                        onClick={() => { setSelectedTopic(t); setFeedLabel(`All ${topicDisplayName(t)} News`); }}
+                      >
+                        <span className="tz-item-name">{topicDisplayName(t)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </label>
+              )}
 
               <label className="form-label">
                 Label
@@ -444,7 +504,13 @@ const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ open, onClose, widgets 
                   type="text"
                   value={feedLabel}
                   onChange={(e) => setFeedLabel(e.target.value)}
-                  placeholder={selectedFeed ? feedDisplayName(selectedFeed) : 'Select a feed first'}
+                  placeholder={
+                    newsMode === 'single'
+                      ? (selectedFeed ? feedDisplayName(selectedFeed) : 'Select a feed first')
+                      : newsMode === 'topic'
+                        ? (selectedTopic ? `All ${topicDisplayName(selectedTopic)} News` : 'Select a topic first')
+                        : 'All News'
+                  }
                 />
               </label>
 
@@ -452,7 +518,11 @@ const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ open, onClose, widgets 
             </div>
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={isPending || !selectedFeed}>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={isPending || (newsMode === 'single' && !selectedFeed) || (newsMode === 'topic' && !selectedTopic)}
+              >
                 {isPending ? 'Adding...' : 'Add'}
               </button>
             </div>

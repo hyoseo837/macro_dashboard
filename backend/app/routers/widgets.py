@@ -29,6 +29,18 @@ async def _fetch_new_feed(feed_key: str) -> None:
             await db.commit()
 
 
+async def _fetch_all_new_feeds() -> None:
+    from ..db import SessionLocal
+    from ..models import NewsFeed
+    async with SessionLocal() as db:
+        result = await db.execute(
+            select(NewsFeed).where(NewsFeed.last_fetched_at.is_(None))
+        )
+        for feed in result.scalars().all():
+            await fetch_feed(db, feed)
+        await db.commit()
+
+
 @router.get("/timezones")
 async def list_timezones():
     return sorted(VALID_TIMEZONES)
@@ -67,11 +79,32 @@ async def create_widget(
             raise HTTPException(status_code=422, detail="time widget requires a valid config.timezone")
 
     elif body.type == WidgetType.news:
-        feed_id = body.config.get("feed_id")
-        if not feed_id or feed_id not in FEED_CATALOG:
-            raise HTTPException(status_code=422, detail="news widget requires a valid config.feed_id")
-        feed = await activate_feed(db, feed_id)
-        needs_fetch = feed is not None and not feed.last_fetched_at
+        mode = body.config.get("mode", "single")
+        needs_fetch = False
+
+        if mode == "single" or mode not in ("single", "topic", "overall"):
+            feed_id = body.config.get("feed_id")
+            if not feed_id or feed_id not in FEED_CATALOG:
+                raise HTTPException(status_code=422, detail="news widget requires a valid config.feed_id")
+            feed = await activate_feed(db, feed_id)
+            needs_fetch = feed is not None and not feed.last_fetched_at
+
+        elif mode == "topic":
+            topic = body.config.get("topic")
+            valid_topics = set(entry["topic"] for entry in FEED_CATALOG.values())
+            if not topic or topic not in valid_topics:
+                raise HTTPException(status_code=422, detail="news widget requires a valid config.topic")
+            for key, entry in FEED_CATALOG.items():
+                if entry["topic"] == topic:
+                    feed = await activate_feed(db, key)
+                    if feed and not feed.last_fetched_at:
+                        needs_fetch = True
+
+        elif mode == "overall":
+            for key in FEED_CATALOG:
+                feed = await activate_feed(db, key)
+                if feed and not feed.last_fetched_at:
+                    needs_fetch = True
     else:
         needs_fetch = False
 
@@ -89,7 +122,11 @@ async def create_widget(
     await db.refresh(widget)
 
     if needs_fetch:
-        asyncio.create_task(_fetch_new_feed(body.config["feed_id"]))
+        mode = body.config.get("mode", "single") if body.type == WidgetType.news else None
+        if mode == "single" or mode is None:
+            asyncio.create_task(_fetch_new_feed(body.config["feed_id"]))
+        elif mode in ("topic", "overall"):
+            asyncio.create_task(_fetch_all_new_feeds())
 
     return widget
 

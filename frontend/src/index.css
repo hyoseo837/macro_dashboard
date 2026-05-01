@@ -1689,3 +1689,48 @@ body {
   font-size: 12px;
   color: var(--text-dim);
 }
+
+.news-briefing-item {
+  padding: 6px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.news-briefing-item:last-child {
+  border-bottom: none;
+}
+
+.news-briefing-text {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.news-briefing-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.news-briefing-sources {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.news-briefing-badge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: background 0.12s;
+}
+
+.news-briefing-badge:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text-primary);
+}

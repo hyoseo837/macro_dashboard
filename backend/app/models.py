@@ -126,6 +126,20 @@ class NewsFeed(Base):
     articles: Mapped[List["NewsArticle"]] = relationship(back_populates="feed", cascade="all, delete-orphan")
 
 
+class ArticleCluster(Base):
+    __tablename__ = "article_clusters"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    label: Mapped[str] = mapped_column(String)
+    summary: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    topic: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    article_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    articles: Mapped[List["NewsArticle"]] = relationship(back_populates="cluster")
+
+
 class NewsArticle(Base):
     __tablename__ = "news_articles"
 
@@ -136,5 +150,9 @@ class NewsArticle(Base):
     source_name: Mapped[str] = mapped_column(String)
     published_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    cluster_id: Mapped[Optional[int]] = mapped_column(ForeignKey("article_clusters.id", ondelete="SET NULL"), nullable=True, index=True)
+    duplicate_of_id: Mapped[Optional[int]] = mapped_column(ForeignKey("news_articles.id", ondelete="SET NULL"), nullable=True, index=True)
 
     feed: Mapped["NewsFeed"] = relationship(back_populates="articles")
+    cluster: Mapped[Optional["ArticleCluster"]] = relationship(back_populates="articles")
+    duplicate_of: Mapped[Optional["NewsArticle"]] = relationship(remote_side=[id])

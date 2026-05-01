@@ -34,8 +34,10 @@ export interface TimeWidgetConfig {
 }
 
 export interface NewsWidgetConfig {
-  feed_id: string;
+  feed_id?: string;
   label: string;
+  mode?: 'single' | 'topic' | 'overall';
+  topic?: string;
 }
 
 export interface NewsFeedCatalogEntry {
@@ -52,6 +54,13 @@ export interface NewsArticle {
   source_name: string;
   published_at: string | null;
   fetched_at: string;
+}
+
+export interface ClusteredArticles {
+  cluster_id: number | null;
+  cluster_label: string | null;
+  summary: string | null;
+  articles: NewsArticle[];
 }
 
 export interface LayoutItem {

@@ -8,7 +8,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import NewsFeed, NewsArticle, Widget, WidgetType
+from ..models import NewsFeed, NewsArticle, ArticleCluster, Widget, WidgetType
 
 logger = logging.getLogger(__name__)
 
@@ -179,19 +179,37 @@ async def activate_feed(db: AsyncSession, feed_key: str) -> Optional[NewsFeed]:
 
 
 async def deactivate_orphan_feeds(db: AsyncSession) -> None:
-    result = await db.execute(select(NewsFeed))
-    feeds = result.scalars().all()
+    overall_result = await db.execute(
+        select(Widget).where(
+            Widget.type == WidgetType.news,
+            Widget.config["mode"].astext == "overall",
+        ).limit(1)
+    )
+    if overall_result.scalar_one_or_none():
+        return
 
-    for feed in feeds:
-        count_result = await db.execute(
-            select(Widget)
-            .where(
-                Widget.type == WidgetType.news,
-                Widget.config["feed_id"].astext == feed.feed_key,
-            )
-            .limit(1)
+    topic_result = await db.execute(
+        select(Widget.config["topic"].astext).where(
+            Widget.type == WidgetType.news,
+            Widget.config["mode"].astext == "topic",
         )
-        if not count_result.scalar_one_or_none():
+    )
+    needed_topics = {row[0] for row in topic_result.all() if row[0]}
+
+    single_result = await db.execute(
+        select(Widget.config["feed_id"].astext).where(
+            Widget.type == WidgetType.news,
+        )
+    )
+    needed_feed_keys = {row[0] for row in single_result.all() if row[0]}
+
+    for key, entry in FEED_CATALOG.items():
+        if entry["topic"] in needed_topics:
+            needed_feed_keys.add(key)
+
+    result = await db.execute(select(NewsFeed))
+    for feed in result.scalars().all():
+        if feed.feed_key not in needed_feed_keys:
             await db.delete(feed)
             logger.info("Deactivated orphan feed: %s", feed.feed_key)
 
@@ -255,5 +273,8 @@ async def cleanup_old_articles(db: AsyncSession) -> None:
     result = await db.execute(
         delete(NewsArticle).where(NewsArticle.fetched_at < cutoff)
     )
+    cluster_result = await db.execute(
+        delete(ArticleCluster).where(ArticleCluster.expires_at < datetime.now(timezone.utc))
+    )
     await db.commit()
-    logger.info("Cleaned up %d old articles", result.rowcount)
+    logger.info("Cleaned up %d old articles, %d expired clusters", result.rowcount, cluster_result.rowcount)
