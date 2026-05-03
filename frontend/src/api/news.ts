@@ -18,6 +18,13 @@ export async function getTopics(): Promise<string[]> {
   return data;
 }
 
+export async function getFeedClusteredArticles(feedKey: string, limit = 200): Promise<ClusteredArticles[]> {
+  const { data } = await apiClient.get<ClusteredArticles[]>('/news/articles/feed/clustered', {
+    params: { feed_key: feedKey, limit },
+  });
+  return data;
+}
+
 export async function getTopicArticles(topic: string, limit = 20): Promise<ClusteredArticles[]> {
   const { data } = await apiClient.get<ClusteredArticles[]>('/news/articles/topic', {
     params: { topic, limit },

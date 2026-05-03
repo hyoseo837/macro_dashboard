@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { ResponsiveGridLayout, useContainerWidth, noCompactor } from 'react-grid-layout';
+import { ResponsiveGridLayout, useContainerWidth, noCompactor, type Compactor } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -13,6 +13,7 @@ const BREAKPOINTS = { lg: 1200, md: 900, sm: 600, xs: 0 };
 const COLS = { lg: 6, md: 4, sm: 2, xs: 1 };
 const ROW_HEIGHT = 200;
 const MARGIN: [number, number] = [16, 16];
+const compactor: Compactor = { ...noCompactor, preventCollision: true };
 
 interface WidgetGridProps {
   widgets: Widget[];
@@ -35,8 +36,8 @@ export default function WidgetGrid({ widgets, editMode }: WidgetGridProps) {
 
   const deleteMutation = useMutation({
     mutationFn: deleteWidget,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['widgets'] });
+    onSuccess: (_data, deletedId) => {
+      queryClient.setQueryData<Widget[]>(['widgets'], (old) => (old || []).filter((w) => w.id !== deletedId));
       queryClient.invalidateQueries({ queryKey: ['assets'] });
     },
   });
@@ -92,7 +93,7 @@ export default function WidgetGrid({ widgets, editMode }: WidgetGridProps) {
         cols={COLS}
         rowHeight={ROW_HEIGHT}
         margin={MARGIN}
-        compactor={noCompactor}
+        compactor={compactor}
         onLayoutChange={handleLayoutChange}
       >
         {widgets.map((widget) => {

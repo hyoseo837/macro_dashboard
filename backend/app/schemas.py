@@ -65,6 +65,7 @@ class PriceSnapshotSchema(BaseModel):
     day_high: Optional[float] = None
     day_low: Optional[float] = None
     volume: Optional[int] = None
+    summary: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
-from ..models import NewsArticle, ArticleCluster, NewsFeed
+from ..models import NewsArticle, ArticleCluster, NewsFeed, PriceSnapshot, Asset
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +116,90 @@ async def cluster_articles(db: AsyncSession) -> int:
     return count
 
 
+def _build_price_summary_prompt(
+    asset_name: str,
+    symbol: str,
+    sparkline: list,
+    recent_headlines: list[str],
+) -> str:
+    if not sparkline or len(sparkline) < 2:
+        return ""
+
+    prices = [p["price"] if isinstance(p, dict) else p for p in sparkline]
+    week_ago = prices[0] if len(prices) >= 5 else prices[0]
+    current = prices[-1]
+    change_pct = ((current - week_ago) / week_ago) * 100 if week_ago else 0
+    direction = "rose" if change_pct > 0 else "fell" if change_pct < 0 else "flat"
+
+    headlines_text = "\n".join(f"- {h}" for h in recent_headlines[:30]) if recent_headlines else "(no recent headlines)"
+
+    return (
+        f"Asset: {asset_name} ({symbol})\n"
+        f"Price {direction} {abs(change_pct):.1f}% over the past week "
+        f"(from {week_ago:.2f} to {current:.2f}).\n\n"
+        f"Recent news headlines:\n{headlines_text}\n\n"
+        "Write ONE sentence (under 20 words) explaining why this price moved. "
+        "Reference specific events if relevant (e.g. 'Fed rate hike', 'Iran strikes', 'Trump tariff announcement'). "
+        "If the change is tiny (<1%) or no clear cause exists, write a brief market context instead.\n"
+        "Return ONLY the sentence, no quotes, no prefix."
+    )
+
+
+async def generate_price_summaries(db: AsyncSession) -> int:
+    from sqlalchemy.orm import joinedload
+
+    result = await db.execute(
+        select(PriceSnapshot).options(joinedload(PriceSnapshot.asset))
+    )
+    snapshots = result.scalars().all()
+    if not snapshots:
+        return 0
+
+    now = datetime.now(timezone.utc)
+    cutoff_48h = now - timedelta(hours=48)
+
+    headline_result = await db.execute(
+        select(NewsArticle.title)
+        .where(NewsArticle.fetched_at >= cutoff_48h)
+        .order_by(NewsArticle.published_at.desc().nullslast())
+        .limit(60)
+    )
+    recent_headlines = [row[0] for row in headline_result.all()]
+
+    client = _get_client()
+    count = 0
+
+    for snap in snapshots:
+        if snap.summary_updated_at and (now - snap.summary_updated_at).total_seconds() < 3600:
+            continue
+
+        prompt = _build_price_summary_prompt(
+            snap.asset.display_name,
+            snap.asset.symbol,
+            snap.sparkline or [],
+            recent_headlines,
+        )
+        if not prompt:
+            continue
+
+        try:
+            await asyncio.sleep(_RATE_LIMIT_DELAY)
+            response = await asyncio.to_thread(
+                client.models.generate_content, model="gemini-2.5-flash", contents=prompt
+            )
+            summary = response.text.strip().strip('"').strip("'")
+            if summary:
+                snap.summary = summary[:500]
+                snap.summary_updated_at = now
+                count += 1
+        except Exception:
+            logger.warning("Gemini price summary failed for %s", snap.asset_id, exc_info=True)
+
+    await db.flush()
+    logger.info("Generated %d price summaries", count)
+    return count
+
+
 async def run_ai_pipeline(db: AsyncSession) -> None:
     if not is_ai_enabled():
         logger.info("AI features disabled (no GEMINI_API_KEY)")
@@ -123,4 +207,8 @@ async def run_ai_pipeline(db: AsyncSession) -> None:
 
     cluster_count = await cluster_articles(db)
     await db.commit()
-    logger.info("AI pipeline complete: %d articles clustered", cluster_count)
+
+    summary_count = await generate_price_summaries(db)
+    await db.commit()
+
+    logger.info("AI pipeline complete: %d articles clustered, %d price summaries", cluster_count, summary_count)

@@ -32,6 +32,7 @@ async def list_prices(db: AsyncSession = Depends(get_db)):
             "day_high": float(s.day_high) if s.day_high is not None else None,
             "day_low": float(s.day_low) if s.day_low is not None else None,
             "volume": s.volume,
+            "summary": s.summary,
         }
         for s in snapshots
     ]

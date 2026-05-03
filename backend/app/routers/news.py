@@ -42,7 +42,7 @@ async def list_topics():
 @router.get("/articles", response_model=List[NewsArticleSchema])
 async def list_articles(
     feed_id: str = Query(..., description="Feed key from catalog"),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -65,6 +65,7 @@ async def _build_clustered_response(
     db: AsyncSession,
     topic_filter: str | None,
     limit: int,
+    feed_id: int | None = None,
 ) -> list[ClusteredArticleSchema]:
     now = datetime.now(timezone.utc)
 
@@ -74,6 +75,13 @@ async def _build_clustered_response(
     )
     if topic_filter:
         cluster_query = cluster_query.where(ArticleCluster.topic == topic_filter)
+    if feed_id is not None:
+        cluster_query = cluster_query.where(
+            ArticleCluster.id.in_(
+                select(NewsArticle.cluster_id)
+                .where(NewsArticle.feed_id == feed_id, NewsArticle.cluster_id.isnot(None))
+            )
+        )
     cluster_query = cluster_query.order_by(
         ArticleCluster.article_count.desc(),
         ArticleCluster.created_at.desc(),
@@ -86,11 +94,14 @@ async def _build_clustered_response(
     seen_ids: set[int] = set()
 
     for cluster in clusters:
-        articles_result = await db.execute(
+        article_query = (
             select(NewsArticle)
             .where(NewsArticle.cluster_id == cluster.id)
             .order_by(NewsArticle.published_at.desc().nullslast())
         )
+        if feed_id is not None:
+            article_query = article_query.where(NewsArticle.feed_id == feed_id)
+        articles_result = await db.execute(article_query)
         articles = articles_result.scalars().all()
         if articles:
             result.append(ClusteredArticleSchema(
@@ -110,6 +121,8 @@ async def _build_clustered_response(
             unclustered_query = unclustered_query.join(
                 NewsFeed, NewsArticle.feed_id == NewsFeed.id
             ).where(NewsFeed.topic == topic_filter)
+        if feed_id is not None:
+            unclustered_query = unclustered_query.where(NewsArticle.feed_id == feed_id)
         if seen_ids:
             unclustered_query = unclustered_query.where(~NewsArticle.id.in_(seen_ids))
         unclustered_query = (
@@ -129,10 +142,25 @@ async def _build_clustered_response(
     return result
 
 
+@router.get("/articles/feed/clustered", response_model=List[ClusteredArticleSchema])
+async def list_feed_clustered_articles(
+    feed_key: str = Query(..., description="Feed key from catalog"),
+    limit: int = Query(200, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(NewsFeed).where(NewsFeed.feed_key == feed_key)
+    )
+    feed = result.scalar_one_or_none()
+    if not feed:
+        return []
+    return await _build_clustered_response(db, topic_filter=None, limit=limit, feed_id=feed.id)
+
+
 @router.get("/articles/topic", response_model=List[ClusteredArticleSchema])
 async def list_topic_articles(
     topic: str = Query(..., description="Topic from catalog"),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
 ):
     return await _build_clustered_response(db, topic_filter=topic, limit=limit)
@@ -140,7 +168,7 @@ async def list_topic_articles(
 
 @router.get("/articles/clustered", response_model=List[ClusteredArticleSchema])
 async def list_clustered_articles(
-    limit: int = Query(30, ge=1, le=100),
+    limit: int = Query(30, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
 ):
     return await _build_clustered_response(db, topic_filter=None, limit=limit)

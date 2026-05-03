@@ -55,6 +55,7 @@ const AssetWidget: React.FC<AssetWidgetProps> = ({ widget, currentW, currentH })
         <div className="aw-header">
           <div className="aw-label">{label}</div>
           <div className="aw-symbol">{symbol}</div>
+          {price.summary && <div className="aw-summary">{price.summary}</div>}
         </div>
         <div className="aw-spark-area">
           <Sparkline data={price.sparkline} isUp={isUp} currency={currency} />
@@ -77,6 +78,7 @@ const AssetWidget: React.FC<AssetWidgetProps> = ({ widget, currentW, currentH })
           <div className="aw-wide-top-left">
             <div className="aw-label">{label}</div>
             <div className="aw-symbol">{symbol}</div>
+            {price.summary && <div className="aw-summary">{price.summary}</div>}
           </div>
           <div className={`aw-wide-top-right ${isUp ? 'up' : 'down'}`}>
             <div className="aw-price">
@@ -113,6 +115,7 @@ const AssetWidget: React.FC<AssetWidgetProps> = ({ widget, currentW, currentH })
         <div className="aw-header">
           <div className="aw-label">{label}</div>
           <div className="aw-symbol">{symbol}</div>
+          {price.summary && <div className="aw-summary">{price.summary}</div>}
         </div>
         <div className="aw-spark-area aw-spark-tall">
           <Sparkline data={price.sparkline} isUp={isUp} currency={currency} />
@@ -135,6 +138,7 @@ const AssetWidget: React.FC<AssetWidgetProps> = ({ widget, currentW, currentH })
         <div>
           <div className="aw-label">{label}</div>
           <div className="aw-symbol">{symbol}</div>
+          {price.summary && <div className="aw-summary">{price.summary}</div>}
         </div>
         <div className={`aw-full-price-group ${isUp ? 'up' : 'down'}`}>
           <div className="aw-price-lg">

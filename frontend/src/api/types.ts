@@ -96,4 +96,5 @@ export interface PriceSnapshot {
   day_high: number | null;
   day_low: number | null;
   volume: number | null;
+  summary: string | null;
 }

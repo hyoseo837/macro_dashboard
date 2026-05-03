@@ -93,6 +93,8 @@ class PriceSnapshot(Base):
     day_low: Mapped[Optional[float]] = mapped_column(Numeric, nullable=True)
     volume: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    summary: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    summary_updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     asset: Mapped["Asset"] = relationship(back_populates="snapshot")
 

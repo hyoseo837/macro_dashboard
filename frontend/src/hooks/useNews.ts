@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getNewsArticles, getNewsCatalog, getTopicArticles, getClusteredArticles, getAiStatus } from '../api/news';
+import { getNewsArticles, getNewsCatalog, getFeedClusteredArticles, getTopicArticles, getClusteredArticles, getAiStatus } from '../api/news';
 
 export function useNewsCatalog() {
   return useQuery({
@@ -15,6 +15,15 @@ export function useNewsArticles(feedId: string, limit = 20) {
     queryFn: () => getNewsArticles(feedId, limit),
     staleTime: 5 * 60 * 1000,
     enabled: !!feedId,
+  });
+}
+
+export function useFeedClusteredArticles(feedKey: string, limit = 200) {
+  return useQuery({
+    queryKey: ['feedClusteredArticles', feedKey, limit],
+    queryFn: () => getFeedClusteredArticles(feedKey, limit),
+    staleTime: 5 * 60 * 1000,
+    enabled: !!feedKey,
   });
 }
 

@@ -108,8 +108,8 @@ const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ open, onClose, widgets 
 
   const widgetMutation = useMutation({
     mutationFn: (payload: CreateWidgetPayload) => createWidget(payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['widgets'] });
+    onSuccess: (newWidget) => {
+      queryClient.setQueryData<Widget[]>(['widgets'], (old) => [...(old || []), newWidget]);
       queryClient.invalidateQueries({ queryKey: ['assets'] });
       queryClient.invalidateQueries({ queryKey: ['prices'] });
       onClose();
