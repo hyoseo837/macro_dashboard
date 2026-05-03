@@ -673,7 +673,7 @@ body {
   border-color: var(--text-dim);
 }
 
-.widget-cell.edit-mode > *:not(.widget-edit-controls) {
+.widget-cell.edit-mode > *:not(.widget-edit-controls):not(.react-resizable-handle) {
   pointer-events: none;
 }
 

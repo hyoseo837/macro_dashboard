@@ -65,6 +65,8 @@ async def create_widget(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    needs_fetch = False
+
     if body.type == WidgetType.asset:
         asset_id = body.config.get("asset_id")
         if not asset_id:
@@ -80,7 +82,6 @@ async def create_widget(
 
     elif body.type == WidgetType.news:
         mode = body.config.get("mode", "single")
-        needs_fetch = False
 
         if mode == "single" or mode not in ("single", "topic", "overall"):
             feed_id = body.config.get("feed_id")
@@ -105,8 +106,6 @@ async def create_widget(
                 feed = await activate_feed(db, key)
                 if feed and not feed.last_fetched_at:
                     needs_fetch = True
-    else:
-        needs_fetch = False
 
     widget = Widget(
         user_id=user.id,

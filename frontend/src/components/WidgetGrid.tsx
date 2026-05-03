@@ -38,6 +38,9 @@ export default function WidgetGrid({ widgets, editMode }: WidgetGridProps) {
     mutationFn: deleteWidget,
     onSuccess: (_data, deletedId) => {
       queryClient.setQueryData<Widget[]>(['widgets'], (old) => (old || []).filter((w) => w.id !== deletedId));
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['widgets'] });
       queryClient.invalidateQueries({ queryKey: ['assets'] });
     },
   });

@@ -110,12 +110,15 @@ const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ open, onClose, widgets 
     mutationFn: (payload: CreateWidgetPayload) => createWidget(payload),
     onSuccess: (newWidget) => {
       queryClient.setQueryData<Widget[]>(['widgets'], (old) => [...(old || []), newWidget]);
-      queryClient.invalidateQueries({ queryKey: ['assets'] });
-      queryClient.invalidateQueries({ queryKey: ['prices'] });
       onClose();
     },
     onError: (err: any) => {
       setError(err.response?.data?.detail || 'Failed to create widget');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['widgets'] });
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['prices'] });
     },
   });
 
