@@ -28,6 +28,17 @@ function formatVolume(v: number): string {
   return String(v);
 }
 
+function SummaryTicker({ text }: { text: string }) {
+  return (
+    <div className="aw-ticker">
+      <div className="aw-ticker-track">
+        <span>{text}</span>
+        <span>{text}</span>
+      </div>
+    </div>
+  );
+}
+
 const AssetWidget: React.FC<AssetWidgetProps> = ({ widget, currentW, currentH }) => {
   const { data: prices } = usePrices();
   const { data: assets } = useAssets();
@@ -55,7 +66,6 @@ const AssetWidget: React.FC<AssetWidgetProps> = ({ widget, currentW, currentH })
         <div className="aw-header">
           <div className="aw-label">{label}</div>
           <div className="aw-symbol">{symbol}</div>
-          {price.summary && <div className="aw-summary">{price.summary}</div>}
         </div>
         <div className="aw-spark-area">
           <Sparkline data={price.sparkline} isUp={isUp} currency={currency} />
@@ -67,6 +77,7 @@ const AssetWidget: React.FC<AssetWidgetProps> = ({ widget, currentW, currentH })
           </div>
           <ChangeBadge value={price.change_pct} />
         </div>
+        {price.summary && <SummaryTicker text={price.summary} />}
       </div>
     );
   }
@@ -78,7 +89,6 @@ const AssetWidget: React.FC<AssetWidgetProps> = ({ widget, currentW, currentH })
           <div className="aw-wide-top-left">
             <div className="aw-label">{label}</div>
             <div className="aw-symbol">{symbol}</div>
-            {price.summary && <div className="aw-summary">{price.summary}</div>}
           </div>
           <div className={`aw-wide-top-right ${isUp ? 'up' : 'down'}`}>
             <div className="aw-price">
@@ -105,6 +115,7 @@ const AssetWidget: React.FC<AssetWidgetProps> = ({ widget, currentW, currentH })
             </div>
           )}
         </div>
+        {price.summary && <SummaryTicker text={price.summary} />}
       </div>
     );
   }
@@ -115,7 +126,6 @@ const AssetWidget: React.FC<AssetWidgetProps> = ({ widget, currentW, currentH })
         <div className="aw-header">
           <div className="aw-label">{label}</div>
           <div className="aw-symbol">{symbol}</div>
-          {price.summary && <div className="aw-summary">{price.summary}</div>}
         </div>
         <div className="aw-spark-area aw-spark-tall">
           <Sparkline data={price.sparkline} isUp={isUp} currency={currency} />
@@ -127,6 +137,7 @@ const AssetWidget: React.FC<AssetWidgetProps> = ({ widget, currentW, currentH })
           </div>
           <ChangeBadge value={price.change_pct} />
         </div>
+        {price.summary && <SummaryTicker text={price.summary} />}
       </div>
     );
   }
@@ -138,7 +149,6 @@ const AssetWidget: React.FC<AssetWidgetProps> = ({ widget, currentW, currentH })
         <div>
           <div className="aw-label">{label}</div>
           <div className="aw-symbol">{symbol}</div>
-          {price.summary && <div className="aw-summary">{price.summary}</div>}
         </div>
         <div className={`aw-full-price-group ${isUp ? 'up' : 'down'}`}>
           <div className="aw-price-lg">
@@ -169,6 +179,7 @@ const AssetWidget: React.FC<AssetWidgetProps> = ({ widget, currentW, currentH })
           <span className="aw-stat-value">{formatPrice(price.price - price.change_abs, currency)}</span>
         </div>
       </div>
+      {price.summary && <SummaryTicker text={price.summary} />}
     </div>
   );
 };
