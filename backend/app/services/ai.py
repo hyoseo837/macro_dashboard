@@ -72,7 +72,7 @@ async def cluster_articles(db: AsyncSession) -> int:
     prompt = _build_cluster_prompt(articles)
     try:
         response = await asyncio.to_thread(
-            client.models.generate_content, model="gemini-2.5-flash", contents=prompt
+            client.models.generate_content, model="gemini-3-flash-preview", contents=prompt
         )
         text = _strip_code_fence(response.text)
         groups = json.loads(text)
@@ -199,7 +199,7 @@ async def generate_price_summaries(db: AsyncSession) -> int:
         try:
             await asyncio.sleep(_RATE_LIMIT_DELAY)
             response = await asyncio.to_thread(
-                client.models.generate_content, model="gemini-2.5-flash", contents=prompt
+                client.models.generate_content, model="gemini-3-flash-preview", contents=prompt
             )
             summary = response.text.strip().strip('"').strip("'")
             if summary:

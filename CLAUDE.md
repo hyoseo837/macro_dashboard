@@ -8,7 +8,7 @@ v4B (AI news) is in progress. Deployed to **https://macro.hyoseo.dev** (DigitalO
 
 ## Scope discipline
 
-v4B (AI-powered news) is in progress. AI event clustering with briefing summaries implemented using Gemini 2.5 Flash via `google-genai`.
+v4B (AI-powered news) is in progress. AI event clustering with briefing summaries implemented using Gemini 3 Flash via `google-genai`.
 
 ## Architecture
 
@@ -26,7 +26,7 @@ The contract between halves is [API.md](API.md). If a shape changes, update `API
 - **Orphan cleanup**: Deleting the last widget referencing an asset also deletes the asset and its snapshots — except for protected default assets (AAPL, MSFT, BTC-USD) which are preserved so new users get price data immediately. News feeds follow the same pattern — orphan feeds and their articles are deleted when no widget references them.
 - **News feeds**: Predefined RSS feed catalog in `app/services/news.py` (22 feeds: BBC, CNN, Reuters, NYT, HN, Korea Herald, CBC). Feeds are activated on-demand when a news widget is created. Articles cached for 7 days, cleaned up daily. Minimum widget size 2x1.
 - **News widget modes**: Three modes via `config.mode`: `single` (one feed, default/backward-compat), `topic` (cross-source aggregation by topic), `overall` (all feeds). All three modes now use briefing format: short event one-liner + source badges linking to articles. Single mode uses `/news/articles/feed/clustered` endpoint. Topic/overall modes activate all relevant feeds on creation.
-- **AI features** (`app/services/ai.py`): Gemini 2.5 Flash via `google-genai`. Two pipeline stages: (1) `cluster_articles` groups headlines by event and generates a short one-liner summary per cluster (stored in `ArticleCluster.summary`); (2) `generate_price_summaries` creates one-liner explanations for weekly price movements using news context (stored in `PriceSnapshot.summary`, refreshed hourly). Priority queue: no-summary assets first, then oldest. Stops on rate limit (429). All optional — disabled when `GEMINI_API_KEY` is empty. Rate-limited at 5s between calls. Free tier cap: ~60 assets.
+- **AI features** (`app/services/ai.py`): Gemini 3 Flash (`gemini-3-flash-preview`) via `google-genai`. Two pipeline stages: (1) `cluster_articles` groups headlines by event and generates a short one-liner summary per cluster (stored in `ArticleCluster.summary`); (2) `generate_price_summaries` creates one-liner explanations for weekly price movements using news context (stored in `PriceSnapshot.summary`, refreshed hourly). Priority queue: no-summary assets first, then oldest. Stops on rate limit (429). All optional — disabled when `GEMINI_API_KEY` is empty. Rate-limited at 5s between calls. Grounding (Google Search) deferred for future scale.
 - `price_snapshots` is a **cache** (one row per asset, overwritten via `ON CONFLICT DO UPDATE`) — not a history table. Also stores AI-generated `summary` and `summary_updated_at`.
 - **Auth**: JWT access tokens (30 min) in memory, refresh tokens (7 days) as `httpOnly` cookies. First admin created via `poetry run python -m app.cli create-admin`. Password reset via `poetry run python -m app.cli reset-password`. Registration requires an invite code created by an admin.
 - **Default widgets**: On registration, new users get 4 widgets (AAPL, MSFT, BTC-USD asset widgets + New York time widget). Default assets are also ensured on backend startup.

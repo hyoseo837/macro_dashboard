@@ -4,7 +4,33 @@ Backend service: `backend/app/services/ai.py`
 
 ## Overview
 
-Two-stage pipeline using Gemini 2.5 Flash via `google-genai`. Runs every 30 min (5 min after startup). Disabled when `GEMINI_API_KEY` is empty.
+Two-stage pipeline using Gemini 3 Flash via `google-genai`. Runs every 30 min (5 min after startup). Disabled when `GEMINI_API_KEY` is empty.
+
+## Model Choice
+
+**Current: Gemini 3 Flash** (`gemini-3-flash-preview`)
+
+Evaluated 2026-05-04. Considered models:
+
+| Model | Input/M | Output/M | Notes |
+|-------|---------|----------|-------|
+| Gemini 2.5 Flash | $0.15 | $0.60 | Previous model. Cheapest, fast, adequate quality |
+| Gemini 2.5 Pro | $1.25 | $10.00 | Overkill for one-liners, deep reasoning unnecessary |
+| Gemini 3 Flash | $0.50 | $3.00 | Better causal reasoning than 2.5 Flash, same speed class |
+| GPT-4o-mini | $0.15 | $0.60 | Would require rewrite to OpenAI SDK |
+| DeepSeek V3 | $0.14 | $0.28 | Cheapest but inconsistent on short-form, China-hosted latency |
+
+**Why 3 Flash**: The task is short causal summarization ("why did gold go up?"). All budget models perform similarly on simple tasks, but 3 Flash has noticeably better reasoning for connecting news events to price movements. Cost difference is negligible at our scale (~$0.15/mo for 7 assets vs ~$0.05/mo with 2.5 Flash).
+
+## Grounding (Google Search) — Deferred
+
+Gemini supports a grounding tool that lets the model search the web mid-request ($14/1,000 searches, 5,000 free/month).
+
+**Why not now**: With 7 assets × 24/day = ~5,040 searches/month — barely fits free tier. At scale (60 assets = 43,200/month), grounding costs ~$535/mo. Not worth it yet.
+
+**When to add**: When the service expands and revenue justifies it. The model currently relies on headlines from the `news_articles` table (last 48h) as context. If summaries become noticeably wrong due to missing news coverage, grounding is the fix.
+
+**Implementation when ready**: Add `tools=[types.Tool(google_search=types.GoogleSearch())]` to the `generate_content` config for price summaries only (clustering doesn't need it).
 
 ## Stage 1: Article Clustering (`cluster_articles`)
 
@@ -13,11 +39,12 @@ Two-stage pipeline using Gemini 2.5 Flash via `google-genai`. Runs every 30 min 
 - Stored in `ArticleCluster.summary`
 - Only processes unclustered articles from the last 48 hours
 - If rate-limited (429), re-raises to abort the entire pipeline run
+- Does NOT need grounding — works with existing headlines
 
 ## Stage 2: Price Summaries (`generate_price_summaries`)
 
 - Processes all eligible assets in a priority queue (no batch cap)
-- Generates one-liner explaining the weekly price movement using recent news context
+- Generates one-liner explaining the weekly price movement using news context
 - Stored in `PriceSnapshot.summary` + `summary_updated_at`
 - Stops immediately on rate limit (429/RESOURCE_EXHAUSTED), remaining assets deferred to next run
 
@@ -46,11 +73,11 @@ Two-stage pipeline using Gemini 2.5 Flash via `google-genai`. Runs every 30 min 
 - On 429/RESOURCE_EXHAUSTED: clustering aborts run, price summaries stop batch
 - Deferred assets retry on the next 30-min cycle
 
-## Free Tier Capacity
+## Capacity (Paid Tier)
 
-Gemini 2.5 Flash free tier: 15 RPM, 1,500 RPD.
+Paid Tier 1: 2,000 RPM, 10,000 RPD — effectively unlimited for our use case.
 
 - Clustering: 1 call/run × 48 runs/day = 48 RPD
 - Price summaries: 1 call/asset/hour × 24 hours = 24 RPD per asset
-- **Max assets: (1,500 − 48) / 24 ≈ 60 assets**
-- RPM and processing time are not binding constraints at this scale
+- At 60 assets: 48 + 1,440 = 1,488 RPD, well within limits
+- Monthly cost at 60 assets: ~$2/mo (model tokens only)
