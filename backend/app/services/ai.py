@@ -12,7 +12,7 @@ from ..models import NewsArticle, ArticleCluster, NewsFeed, PriceSnapshot, Asset
 
 logger = logging.getLogger(__name__)
 
-_RATE_LIMIT_DELAY = 4.0
+_RATE_LIMIT_DELAY = 5.0
 
 
 def is_ai_enabled() -> bool:
@@ -108,8 +108,10 @@ async def cluster_articles(db: AsyncSession) -> int:
             for idx in valid_indices:
                 articles[idx].cluster_id = cluster.id
                 count += 1
-    except Exception:
-        logger.warning("Gemini clustering failed", exc_info=True)
+    except Exception as e:
+        logger.warning("Gemini clustering failed: %s", e)
+        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+            raise
 
     await db.flush()
     logger.info("Clustered %d articles into events", count)
@@ -151,12 +153,29 @@ async def generate_price_summaries(db: AsyncSession) -> int:
     result = await db.execute(
         select(PriceSnapshot).options(joinedload(PriceSnapshot.asset))
     )
-    snapshots = result.scalars().all()
+    snapshots = list(result.scalars().all())
     if not snapshots:
         return 0
 
     now = datetime.now(timezone.utc)
     cutoff_48h = now - timedelta(hours=48)
+
+    # Queue: no summary first, then oldest summary first, skip fresh (<1hr)
+    queue = []
+    for snap in snapshots:
+        if snap.summary_updated_at and (now - snap.summary_updated_at).total_seconds() < 3600:
+            continue
+        if not snap.sparkline or len(snap.sparkline) < 2:
+            continue
+        queue.append(snap)
+
+    queue.sort(key=lambda s: (
+        s.summary_updated_at is not None,
+        s.summary_updated_at or datetime.min.replace(tzinfo=timezone.utc),
+    ))
+
+    if not queue:
+        return 0
 
     headline_result = await db.execute(
         select(NewsArticle.title)
@@ -169,18 +188,13 @@ async def generate_price_summaries(db: AsyncSession) -> int:
     client = _get_client()
     count = 0
 
-    for snap in snapshots:
-        if snap.summary_updated_at and (now - snap.summary_updated_at).total_seconds() < 3600:
-            continue
-
+    for snap in queue:
         prompt = _build_price_summary_prompt(
             snap.asset.display_name,
             snap.asset.symbol,
             snap.sparkline or [],
             recent_headlines,
         )
-        if not prompt:
-            continue
 
         try:
             await asyncio.sleep(_RATE_LIMIT_DELAY)
@@ -192,11 +206,14 @@ async def generate_price_summaries(db: AsyncSession) -> int:
                 snap.summary = summary[:500]
                 snap.summary_updated_at = now
                 count += 1
-        except Exception:
-            logger.warning("Gemini price summary failed for %s", snap.asset_id, exc_info=True)
+        except Exception as e:
+            logger.warning("Gemini price summary failed for %s: %s", snap.asset_id, e)
+            if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                logger.info("Rate limit hit after %d summaries, %d remaining in queue", count, len(queue) - count - 1)
+                break
 
     await db.flush()
-    logger.info("Generated %d price summaries", count)
+    logger.info("Price summaries: %d generated, %d in queue", count, len(queue))
     return count
 
 
@@ -205,8 +222,12 @@ async def run_ai_pipeline(db: AsyncSession) -> None:
         logger.info("AI features disabled (no GEMINI_API_KEY)")
         return
 
-    cluster_count = await cluster_articles(db)
-    await db.commit()
+    try:
+        cluster_count = await cluster_articles(db)
+        await db.commit()
+    except Exception:
+        logger.info("Clustering hit rate limit, skipping price summaries this run")
+        return
 
     summary_count = await generate_price_summaries(db)
     await db.commit()

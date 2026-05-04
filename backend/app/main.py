@@ -70,7 +70,7 @@ async def startup_event():
     scheduler.add_job(scheduled_news_refresh, 'interval', minutes=60)
     scheduler.add_job(scheduled_news_cleanup, 'cron', hour=3)
     scheduler.add_job(
-        scheduled_ai_pipeline, 'interval', minutes=65,
+        scheduled_ai_pipeline, 'interval', minutes=30,
         next_run_time=datetime.now(timezone.utc) + timedelta(minutes=5),
     )
     scheduler.start()
