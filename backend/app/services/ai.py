@@ -4,6 +4,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from google import genai
+from google.genai import types
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +14,10 @@ from ..models import NewsArticle, ArticleCluster, NewsFeed, PriceSnapshot, Asset
 logger = logging.getLogger(__name__)
 
 _RATE_LIMIT_DELAY = 5.0
+_MODEL = "gemini-3-flash-preview"
+_CONFIG = types.GenerateContentConfig(
+    thinking_config=types.ThinkingConfig(thinking_level="minimal")
+)
 
 
 def is_ai_enabled() -> bool:
@@ -72,7 +77,7 @@ async def cluster_articles(db: AsyncSession) -> int:
     prompt = _build_cluster_prompt(articles)
     try:
         response = await asyncio.to_thread(
-            client.models.generate_content, model="gemini-3-flash-preview", contents=prompt
+            client.models.generate_content, model=_MODEL, contents=prompt, config=_CONFIG
         )
         text = _strip_code_fence(response.text)
         groups = json.loads(text)
@@ -199,7 +204,7 @@ async def generate_price_summaries(db: AsyncSession) -> int:
         try:
             await asyncio.sleep(_RATE_LIMIT_DELAY)
             response = await asyncio.to_thread(
-                client.models.generate_content, model="gemini-3-flash-preview", contents=prompt
+                client.models.generate_content, model=_MODEL, contents=prompt, config=_CONFIG
             )
             summary = response.text.strip().strip('"').strip("'")
             if summary:
